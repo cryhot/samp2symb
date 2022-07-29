@@ -1,0 +1,11 @@
+
+pytictoc
+
+lark
+# lark-parser
+graphviz
+z3-solver
+python-sat
+
+ltlf2dfa
+clingo

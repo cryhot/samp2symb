@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys
+import argparse
+
+
+# == helper functions ======================================================== #
+def create_parser(parser=None, name=None, *, aliases=(), **kwargs) -> argparse.ArgumentParser:
+    """Return either the existing parser, either a fresh parser or subparser.
+    If `help` is not explicitely given, it will be set to `description` when creating a subparser.
+    """
+    if parser is None:
+        kwargs.pop('help', None)
+        parser = argparse.ArgumentParser(**kwargs)
+    elif isinstance(parser, argparse._SubParsersAction):
+        if name is None: raise TypeError("must provide name when creating subparser")
+        if 'help' not in kwargs:
+            if 'description' in kwargs: kwargs['help'] = kwargs['description']
+        parser = parser.add_parser(name, aliases=aliases, **kwargs)
+    assert isinstance(parser, argparse.ArgumentParser)
+    return parser
+
+# == parsers and mains ======================================================= #
+
+def print_help(args:argparse.Namespace):
+    "Print parser help and exit."
+    args.parser.print_help(file=sys.stderr)
+    exit(2)
+
+# -- problem_specific --------------------------------------------------------------------- #
+
+def createParser_problemSpecific_targetLtl(parser=None):
+    parser = create_parser(parser,
+        name='ltl', aliases=['LTL'],
+        description="""
+            Infer a Linear Temporal Logic (LTL) formula.
+        """,
+    )
+    parser.set_defaults(parser=parser)
+    parser.set_defaults(run=run_SpecificLTL)
+
+    parser.add_argument("-f", "--traces", "--sample", metavar="FILE",
+        dest='sample_filename', required=True,
+    )
+
+    parser.add_argument('--start-depth', metavar="INT",
+        dest='start_depth', type=int, default=1,
+    )
+    parser.add_argument('-n', '--depth', '--max-depth', metavar="INT",
+        dest='max_depth', type=int, required=True,
+    )
+
+    parser.add_argument('--method', #metavar="METHOD",
+        dest='method', choices=["CE", "SYMBOLIC", "HYBRID"], default="CE",
+        # help = 
+    )
+    return parser
+def run_SpecificLTL(args:argparse.Namespace):
+    from samp2symb.base.trace import Sample, PropTrace
+    from samp2symb.algo.infer_specific import find_specific_formula
+    sample = Sample.load(args.sample_filename, type=PropTrace)
+    sample = sample.positive # keep positive traces only
+    json_stats = dict()
+    method_kwargs = {
+        "CE":       dict(),
+        "SYMBOLIC": dict(force_sub=True),
+        "HYBRID":   dict(force_nsup=True),
+    }[args.method]
+
+    try:
+        formula = find_specific_formula(
+            sample,
+            start_depth=args.start_depth,
+            max_depth=args.max_depth,
+            **method_kwargs,
+            dbg_dots = True,
+            json_stats=json_stats,
+        )
+        print(formula.prettyPrint())
+    except TimeoutError:
+        pass
+
+    return json_stats
+
+
+# def createParser_problemSpecific_targetDfa(parser=None):
+#     parser = create_parser(parser,
+#         name='dfa', aliases=['DFA'],
+#         description="""
+#             Infer a Deterministic Finite Automata (DFA).
+#         """,
+#     )
+#     parser.set_defaults(parser=parser)
+    
+def createParser_problemSpecific(parser=None):
+    parser = create_parser(parser,
+        name='specific', aliases=['posdata'],
+        description="""
+            Infer a specific language, i.e., such that no other solution can be strictly included in this language.
+        """,
+    )
+    parser.set_defaults(parser=parser)
+    parser.set_defaults(run=print_help)
+
+    subparsers_target = parser.add_subparsers(metavar="TARGET",
+        title="inferred target",
+        # required=True, # not working
+        help="Type of inferred symbolic structure.",
+    )
+    createParser_problemSpecific_targetLtl(subparsers_target)
+    # createParser_problemSpecific_targetDfa(subparsers_target)
+
+    return parser
+
+# -- main -------------------------------------------------------------------- #
+
+def createParser_main(parser=None) -> argparse.ArgumentParser:
+    parser = create_parser(
+        # description=r"""
+        #     Generates a chart.
+        # """,
+        # epilog=r"""
+        #     To use this in latex:
+        #     \immediate\write18{\unexpanded{python3 """+sys.argv[0]+""" -o figure.tex --width '0.5\linewidth'}}
+        #     \input{figure.tex}
+        # """,
+    )
+    parser.set_defaults(parser=parser)
+    parser.set_defaults(main=main)
+
+    group_run = parser.add_argument_group(title="running parameters")
+    # group_run.add_argument('--seed', metavar="INT",
+    #     type=int, default=None,
+    #     help="seed for generating random numbers",
+    # )
+    group_run.add_argument("--log", metavar="LVL",
+        dest='loglevel', default="INFO",
+        # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
+        help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
+    )
+
+    group_run.add_argument("-o", "--json-output", metavar="FILE",
+        dest='json_stats_filename',
+        # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
+        help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
+    )
+    
+    subparsers_problem = parser.add_subparsers(metavar="PROBLEM",
+        title="problems",
+        # required=True, # not working
+    	help="problem to consider",
+    )
+    createParser_problemSpecific(subparsers_problem)
+    return parser
+def main(args:argparse.Namespace):
+    import logging
+    logging.basicConfig(level=args.loglevel.upper())
+    if 'run' not in args: print_help(args)
+
+    json_stats = args.run(args)
+
+    import json
+    if getattr(args, 'json_stats_filename', None) is not None:
+        path = args.json_stats_filename.format()
+        with open(path, 'w') as f: json.dump(json_stats, f, indent=2)
+
+
+
+
+
+if __name__ == '__main__':
+	parser = createParser_main()
+	args = parser.parse_args()
+	args.main(args)
