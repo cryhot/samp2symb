@@ -8,8 +8,8 @@ from pytictoc import TicToc
 
 def find_specific_formula(
     sample, formula=None, *,
-    start_depth=1, max_depth,
-    check_horizon=3, check_finite="auto",
+    start_size=1, max_size,
+    check_horizon=float('inf'), check_finite="auto",
     grow_sample=True, # start with an empty sample, and add traces when required
     force_sub = False, force_nsup = False, # force next inferred formula to be \subseteq / \nsupseteq wrt previous formula
     timeout=float("inf"),
@@ -49,7 +49,7 @@ def find_specific_formula(
     if grow_sample:
         effective_sample.clear()
         traces = sorted(((trace,label) for trace,label in sample.items()), key=lambda x: len(x[0].vector))
-    depth = start_depth-1
+    size = start_size-1
     formulas_candidate = iter(())
     formula_kwargs = dict(check_horizon=check_horizon, check_finite=check_finite)
     logger.info(f"considering sample: {sample.summary()}")
@@ -75,7 +75,7 @@ def find_specific_formula(
     while True:
         tictoc_solver.tic()
         if formulas_candidate is None:
-            solver = LTLSolver(depth=depth, atoms=literals)
+            solver = LTLSolver(size=size, atoms=literals)
             solver.add_sample(effective_sample)
             if force_sub: solver.add_formula(formula, sup=True, sub=False, **formula_kwargs)
             elif force_nsup: solver.add_formula(formula, sub=False, **formula_kwargs)
@@ -99,9 +99,9 @@ def find_specific_formula(
             print(f"Best formula before interruption: {formula}")
             raise err
         except StopIteration:
-            depth += 1
-            if depth > max_depth: break
-            logger.debug(f"trying depth={depth}")
+            size += 1
+            if size > max_size: break
+            logger.debug(f"trying size={size}")
             if dbg_dots: sys.stdout.write(termcolor.colored("+", color='cyan', attrs=['bold'])); sys.stdout.flush()
             formulas_candidate = None
             continue

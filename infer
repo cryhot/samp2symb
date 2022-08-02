@@ -44,11 +44,15 @@ def createParser_problemSpecific_targetLtl(parser=None):
         help="'.trace' file",
     )
 
-    parser.add_argument('--start-depth', metavar="INT",
-        dest='start_depth', type=int, default=1,
+    parser.add_argument('--start-size', metavar="INT",
+        dest='start_size', type=int, default=1,
     )
-    parser.add_argument('-n', '--depth', '--max-depth', metavar="INT",
-        dest='max_depth', type=int, required=True,
+    parser.add_argument('-n', '--size', '--max-size', metavar="INT",
+        dest='max_size', type=int, required=True,
+    )
+    parser.add_argument('--horizon', '--check-horizon', metavar="INT",
+        dest='check_horizon', type=int, default=float('inf'),
+        help="Max checked trace lenght when checking language inclusion (method=SYMBOLIC|HYBRID).",
     )
 
     parser.add_argument('--method', #metavar="METHOD",
@@ -74,8 +78,9 @@ def run_SpecificLTL(args:argparse.Namespace):
     try:
         formula = find_specific_formula(
             sample,
-            start_depth=args.start_depth,
-            max_depth=args.max_depth,
+            start_size=args.start_size,
+            max_size=args.max_size,
+            check_horizon=args.check_horizon,
             **method_kwargs,
             timeout=args.timeout,
             dbg_dots = True, # for debugging
@@ -145,6 +150,18 @@ def run_SpecificDFA(args:argparse.Namespace):
     }[args.method]
 
     try:
+        dfa = find_specific_dfa(
+            sample,
+            start_size=args.start_size,
+            max_size=args.max_size,
+            **method_kwargs,
+            timeout=args.timeout,
+            dbg_dots = True, # for debugging
+            json_stats=json_stats,
+            dfa_filename=args.dfa_filename,
+            dfa_new_filename=args.dfa_new_filename or args.dfa_filename,
+            dfa_candidate_filename=args.dfa_candidate_filename,
+        )
         dfa = find_specific_dfa(
             sample,
             start_size=args.start_size,

@@ -10,7 +10,7 @@ Run this script **at your own risk** (it is recommended to read it and to run on
 
 One might intall only a subset of the dependencies:
 - python libraries listed in [`requirements.txt`](requirements.txt)
-- [Z3](https://github.com/Z3Prover/z3#python) with python bindings: SAT solver
+<!-- - [Z3](https://github.com/Z3Prover/z3#python) with python bindings: SAT solver -->
 - [spot](https://spot.lrde.epita.fr/install.html): used to convert LTL formulas to Buchi automatas
 - [mona](https://www.brics.dk/mona/): used by [ltlf2dfa](https://github.com/whitemech/LTLf2DFA) to convert LTL formulas to deterministic finite automatas
 - [clingo](https://github.com/potassco/clingo): ASP solver
@@ -22,6 +22,7 @@ One might intall only a subset of the dependencies:
 Example:
 ```sh
 ./infer -o "stats.json" specific LTL -f traces/generated/5to10OneThree/0020.trace -n=4 --method=CE
+./infer -o "stats.json" specific LTL -f traces/generated/5to10OneThree/0020.trace -n=4 --method=HYBRID --horizon=3
 ./infer --log=INFO -o "stats.json" specific DFA -f traces/dummy.words --dfa="dfa.dot" --dfa-new="dfa-{attempt}.dot" -n=3 --method=CE
 ```
 

@@ -19,12 +19,12 @@ class LTLSolver():
     op_rev_table = {o:l for l,o in op_table.items()}
     ENCODING_FILE = os.path.join(os.path.dirname(__file__), "ltl_encoding.lp")
 
-    def __init__(self, depth:int, use_constants:bool=True, atoms=[]):
+    def __init__(self, size:int, use_constants:bool=True, atoms=[]):
         r"""Create an ASP problem for inferring an LTL formula $\phi$,
         that can be solved using ASP or QBF.
 
         Args:
-            depth (int): depth of the inferred formula $|\phi|$.
+            size (int): size of the inferred formula $|\phi|$.
             use_constants (bool, optional): Allows the use of constants ("true", "false") in $\phi$. Defaults to `True`.
             atoms (list, optional): list of literals that should appear. Usefull if no other literals are introduced with `add_trace()` or `add_formula()`.
         """
@@ -32,14 +32,14 @@ class LTLSolver():
         self.program = io.StringIO()
         self.requires_QASP = False
 
-        assert depth >= 1, "invalid formula depth"
-        self.depth = depth
+        assert size >= 1, "invalid formula size"
+        self.size = size
         self.atoms = set(atoms)
         self.used_names = dict()
         phi = "phi"
 
         print(f"""%% define unknown formula {phi}\n""", file=self.program)
-        print(f"""#const n = {depth}.""",                                                                                               file=self.program)
+        print(f"""#const n = {size}.""",                                                                                               file=self.program)
         print(f"""node({phi}(0..(n-1))).""",                                                                                            file=self.program)
         print(f"""_exists(3,node({phi}(P))) :- node({phi}(P)).""",                                                                      file=self.program)
         print(f""":- child({phi}(P),N0), #false: node({phi}(P0)), {phi}(P0)=N0.     % {phi}(P) can only have {phi}(P0) as childs""",    file=self.program)
@@ -124,7 +124,7 @@ class LTLSolver():
     
     def add_formula(self, formula, *,
         sub:bool=None, sup:bool=None,
-        check_horizon:int=3, check_finite=False,
+        check_horizon:int=float('inf'), check_finite=False,
     ):
         r"""Makes the inferred formula ($\phi$) consistent with the given formula ($\psi$).
         This method wont be effective unless you specify `sup` or `sub`.
@@ -160,7 +160,7 @@ class LTLSolver():
         print(f"""_exists(3,node({psi}(P))) :- node({psi}(P)).""", file=self.program)
         print(file=self.program)
 
-        # check_horizon = min(check_horizon, 2**self.depth) # TODO: horizon theoretical limit (and set default to \infty)
+        check_horizon = min(check_horizon, 2**(self.size+formula.size))
         if check_finite is None: # check both finite and infinite traces
             LEN_HORIZON = f"""LEN_P=(0..{check_horizon}), LEN_C=(0..{check_horizon}), LEN_P+LEN_C<={check_horizon}, LEN_P+LEN_C>=1"""
         elif check_finite: # check only finite traces

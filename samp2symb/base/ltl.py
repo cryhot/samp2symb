@@ -77,6 +77,10 @@ class SimpleTree:
         if self.right != None:
             size += self.right.getSize()
         return size
+    
+    @property
+    def size(self):
+        return self.getSize()
 
     def getDepth(self):
         depth = 0
@@ -85,6 +89,10 @@ class SimpleTree:
         if self.right != None:
             depth = max(depth, 1 + self.right.getDepth())
         return depth
+    
+    @property
+    def depth(self):
+        return self.getDepth()
 
 
     def __repr__(self):
