@@ -41,6 +41,7 @@ def createParser_problemSpecific_targetLtl(parser=None):
 
     parser.add_argument("-f", "--traces", "--sample", metavar="FILE",
         dest='sample_filename', required=True,
+        help="'.trace' file",
     )
 
     parser.add_argument('--start-depth', metavar="INT",
@@ -53,6 +54,9 @@ def createParser_problemSpecific_targetLtl(parser=None):
     parser.add_argument('--method', #metavar="METHOD",
         dest='method', choices=["CE", "SYMBOLIC", "HYBRID"], default="CE",
         # help = 
+    )
+    parser.add_argument('--timeout', metavar="SECONDS",
+        dest='timeout', type=float, default=float('inf'),
     )
     return parser
 def run_SpecificLTL(args:argparse.Namespace):
@@ -73,8 +77,10 @@ def run_SpecificLTL(args:argparse.Namespace):
             start_depth=args.start_depth,
             max_depth=args.max_depth,
             **method_kwargs,
-            dbg_dots = True,
+            timeout=args.timeout,
+            dbg_dots = True, # for debugging
             json_stats=json_stats,
+            program_file="problem.lp", # for debugging
         )
         print(formula.prettyPrint())
     except TimeoutError:
@@ -83,14 +89,78 @@ def run_SpecificLTL(args:argparse.Namespace):
     return json_stats
 
 
-# def createParser_problemSpecific_targetDfa(parser=None):
-#     parser = create_parser(parser,
-#         name='dfa', aliases=['DFA'],
-#         description="""
-#             Infer a Deterministic Finite Automata (DFA).
-#         """,
-#     )
-#     parser.set_defaults(parser=parser)
+def createParser_problemSpecific_targetDfa(parser=None):
+    parser = create_parser(parser,
+        name='dfa', aliases=['DFA'],
+        description="""
+            Infer a Deterministic Finite Automata (DFA).
+        """,
+    )
+    parser.set_defaults(parser=parser)
+    parser.set_defaults(run=run_SpecificDFA)
+
+    parser.add_argument("-f", "--traces", "--sample", metavar="FILE",
+        dest='sample_filename', required=True,
+        help="'.words' file",
+    )
+
+    parser.add_argument('--start-size', metavar="INT",
+        dest='start_size', type=int, default=1,
+    )
+    parser.add_argument('-n', '--size', '--max-size', metavar="INT",
+        dest='max_size', type=int, required=True,
+    )
+
+    parser.add_argument('--method', #metavar="METHOD",
+        dest='method', choices=["CE", "SYMBOLIC", "HYBRID"], default="CE",
+        # help = 
+    )
+    parser.add_argument('--timeout', metavar="SECONDS",
+        dest='timeout', type=float, default=float('inf'),
+    )
+
+    parser.add_argument('--dfa-filename', '--dfa', metavar="FILE",
+        dest='dfa_filename',
+        help="""output '.dot' file.""",
+    )
+    parser.add_argument('--dfa-new-filename', metavar="FILE",
+        dest='dfa_new_filename',
+        help="""output '.dot' file. Can contain "{attempt}".""",
+    )
+    parser.add_argument('--dfa-candidate-filename', metavar="FILE",
+        dest='dfa_candidate_filename',
+        help="""output '.dot' file. Can contain "{attempt}".""",
+    )
+    return parser
+def run_SpecificDFA(args:argparse.Namespace):
+    from samp2symb.base.trace import Sample, AlphaTrace
+    from samp2symb.algo.infer_specific import find_specific_dfa
+    sample = Sample.load(args.sample_filename, type=AlphaTrace)
+    sample = sample.positive # keep positive traces only
+    json_stats = dict()
+    method_kwargs = {
+        "CE":       dict(),
+        "SYMBOLIC": dict(force_sub=True),
+        "HYBRID":   dict(force_nsup=True),
+    }[args.method]
+
+    try:
+        dfa = find_specific_dfa(
+            sample,
+            start_size=args.start_size,
+            max_size=args.max_size,
+            **method_kwargs,
+            timeout=args.timeout,
+            dbg_dots = True, # for debugging
+            json_stats=json_stats,
+            dfa_filename=args.dfa_filename,
+            dfa_new_filename=args.dfa_new_filename or args.dfa_filename,
+            dfa_candidate_filename=args.dfa_candidate_filename,
+        )
+    except TimeoutError:
+        pass
+
+    return json_stats
     
 def createParser_problemSpecific(parser=None):
     parser = create_parser(parser,
@@ -108,7 +178,7 @@ def createParser_problemSpecific(parser=None):
         help="Type of inferred symbolic structure.",
     )
     createParser_problemSpecific_targetLtl(subparsers_target)
-    # createParser_problemSpecific_targetDfa(subparsers_target)
+    createParser_problemSpecific_targetDfa(subparsers_target)
 
     return parser
 
@@ -141,8 +211,6 @@ def createParser_main(parser=None) -> argparse.ArgumentParser:
 
     group_run.add_argument("-o", "--json-output", metavar="FILE",
         dest='json_stats_filename',
-        # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
-        help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
     )
     
     subparsers_problem = parser.add_subparsers(metavar="PROBLEM",

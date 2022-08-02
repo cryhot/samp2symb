@@ -22,6 +22,7 @@ One might intall only a subset of the dependencies:
 Example:
 ```sh
 ./infer -o "stats.json" specific LTL -f traces/generated/5to10OneThree/0020.trace -n=4 --method=CE
+./infer --log=INFO -o "stats.json" specific DFA -f traces/dummy.words --dfa="dfa.dot" --dfa-new="dfa-{attempt}.dot" -n=3 --method=CE
 ```
 
 Please read help (`./infer -h` and subcommands help) for more info.

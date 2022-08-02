@@ -17,7 +17,7 @@ class Trace:
             self.lassoStart = int(lassoStart)
             if self.lassoStart < 0: self.lassoStart += self.lengthOfTrace
             if self.lassoStart >= self.lengthOfTrace:
-                pdb.set_trace()
+                # pdb.set_trace()
                 raise Exception(
                     "lasso start = %s is greater than any value in trace (trace length = %s) -- must be smaller" % (
                     self.lassoStart, self.lengthOfTrace))
@@ -56,6 +56,12 @@ class Trace:
 
     def __str__(self) -> str:
         return self.dumps()
+    
+    def __iter__(self):
+        return itertools.chain(
+            self.vector,
+            itertools.repeat(self.vector[self.lassoStart:]) if self.infinite else (),
+        )
 
     def dumps(self) -> str:
         string = self._seq2str(self.vector)
@@ -242,6 +248,34 @@ class AlphaTrace(Trace):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+    
+    @staticmethod
+    def _seq2str(vector:List[Any]) -> str:
+        """Return a string representation of the vector."""
+        sequence = ''.join(f'{t}' for t in vector)
+        return sequence
+    
+    @staticmethod
+    def _str2seq(sequence:str) -> List[Any]:
+        """Parse a string representation of the vector."""
+        # sequence = sequence.rstrip()
+        # vector = list(sequence.split()[0])
+        vector = [
+            letter
+            for letter in sequence
+        ]
+        return vector
+    
+
+    def evaluate(self, dfa):
+        """Evaluate a dfa on this trace."""
+        from .dfa import DFA
+
+        if isinstance(dfa, DFA):
+            return self in dfa
+
+        else:
+            raise NotImplementedError(f"evaluating {type(formula)}")
 
 
 
@@ -326,6 +360,19 @@ class Sample():
             return next(iter(self)).numVariables
         except StopIteration:
             return None
+    
+    @property
+    def alphabet(self):
+        """extracts alphabet from the words/traces provided in the data"""
+        alphabet = set()
+        for trace in self:
+            if isinstance(trace, PropTrace):
+                [chr(ord('p')+i) for i in range(len(self.positive[0].vector[0]))]
+                # return trace.literals
+                return list(itertools.product((0,1), repeat=trace.numVariables))
+            elif isinstance(trace, AlphaTrace):
+                alphabet.update(trace.vector)
+        return list(alphabet)
 
     def isFormulaConsistent(self, f):
 
@@ -571,10 +618,10 @@ class Sample():
             self.rejectedTraces.append(trace)
 
     @classmethod
-    def loads(cls, string:str):
+    def loads(cls, string:str, *args, **kwargs):
         """Read sample from a string."""
         with io.StringIO(string) as stream:
-            return cls.from_file(stream)
+            return cls.load(stream, *args, **kwargs)
     
     @classmethod
     def load(cls, source, type=PropTrace):

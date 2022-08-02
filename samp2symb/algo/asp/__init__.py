@@ -40,10 +40,11 @@ class LTLSolver():
 
         print(f"""%% define unknown formula {phi}\n""", file=self.program)
         print(f"""#const n = {depth}.""",                                                                                               file=self.program)
-        print(f"""node({phi}(0..(n-1))).""",                                                                                              file=self.program)
+        print(f"""node({phi}(0..(n-1))).""",                                                                                            file=self.program)
         print(f"""_exists(3,node({phi}(P))) :- node({phi}(P)).""",                                                                      file=self.program)
         print(f""":- child({phi}(P),N0), #false: node({phi}(P0)), {phi}(P0)=N0.     % {phi}(P) can only have {phi}(P0) as childs""",    file=self.program)
         print(f""":- child({phi}(P),{phi}(P0)), not P<P0.                           % formula is acyclic, head is {phi}(0)""",          file=self.program)
+        print(f"""{{child({phi}(P),{phi}(P0)) : node({phi}(P))}}>0 :- node({phi}(P0)), P0>0.  % no node is an orphan""",                     file=self.program)
         print(f"""node({phi}(P),trace(bool)) :- node({phi}(P)).                     % define typing of {phi}(P)""",                     file=self.program)
         if not use_constants:
             print(f""":- node({phi}(_),operator(const(_),_,_),_).  % do not use constants""", file=self.program)
@@ -121,17 +122,17 @@ class LTLSolver():
         cls._formula2nodes(formula.right, nodes)
         return nodes
     
-    def add_formula(self, formula,
-        sup=None, sub=None,
-        check_horizon=3, check_finite=False,
+    def add_formula(self, formula, *,
+        sub:bool=None, sup:bool=None,
+        check_horizon:int=3, check_finite=False,
     ):
         r"""Makes the inferred formula ($\phi$) consistent with the given formula ($\psi$).
         This method wont be effective unless you specify `sup` or `sub`.
 
         Args:
             formula (Formula): The given formula ($\psi$).
-            sup (bool, optional): Enforce $L(\psi) \supseteq L(\phi)$ if `True`, or $L(\psi) \nsupseteq L(\phi)$ if `False`.
             sub (bool, optional): Enforce $L(\psi) \subseteq L(\phi)$ if `True`, or $L(\psi) \nsubseteq L(\phi)$ if `False`.
+            sup (bool, optional): Enforce $L(\psi) \supseteq L(\phi)$ if `True`, or $L(\psi) \nsupseteq L(\phi)$ if `False`.
             check_horizon (int, optional): Checks for traces up to this length.
             check_finite (bool|None, optional): Checks for finite traces (`True`), infinite traces (`False`) or both (`None`).
 
@@ -296,10 +297,10 @@ class LTLSolver():
         formula = self._symbols2formula(result)
         return formula
     
-    def solve_asp(self, *args, **kwargs):
+    def solve_asp(self, *args, **kwargs) -> Formula:
         """Returns the first solution of `iter_solve_asp()`."""
         return next(self.iter_solve_asp(*args, models=1, **kwargs))
-    def iter_solve_asp(self, *, models:int=None, timeout=float("inf")):
+    def iter_solve_asp(self, *, models:int=None, timeout=float("inf")) -> Iterable[Formula]:
         if models is None: models = "0"
         assert not self.requires_QASP, "a QASP solver is required to solve this problem."
         if timeout<=0: raise TimeoutError()

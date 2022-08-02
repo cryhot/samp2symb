@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import sys, os, io
+from typing import Iterable
 from graphviz import Source
 import random
+import itertools
 # from ltlf2dfa.parser.ltlf import LTLfParser
 # from .ltl import Formula
 
@@ -424,7 +426,7 @@ class DFA:
                         grouped_transitions.setdefault((state_from,state_to), set())
                         grouped_transitions[(state_from,state_to)].add(letter)
                 for (state_from,state_to),letters in grouped_transitions.items():
-                    print((state_from,state_to,letter))
+                    # print((state_from,state_to,letter))
                     output_file.write('\tq{} -> q{} [label="{}"];\n'.format(
                         self.states.index(state_from),
                         self.states.index(state_to),
@@ -469,7 +471,8 @@ class DFA:
         return set(self.accepting_states)
 
     def _next_states(self, states, letter):
-        return set(self.transitions[(state,letter)] for state in states)
+        # return set(self.transitions[(state,letter)] for state in states)
+        return set(self.transitions[state][letter] for state in states)
 
     def test_word(self, word):
         current_states = self._initial_states()
@@ -685,3 +688,31 @@ def dot2DFA(dot_string, letter2pos, is_word):
 
 #dfa = DFA(1, [2], {1:{'a':2, 'b':2, 'c':1}, 2:{'a':1, 'b':3, 'c':3}, 3:{'a':3, 'b':3, 'c':3}})
 #dfa.show()
+
+
+def iter_prod(*dfas:Iterable[DFA]):
+    "iterate over all reachable states of the product automata, returning the shortest word to reach each such state."
+    alphabet = dfas[0].alphabet
+    word = []
+    queue = [
+        (word, states)
+        for states in itertools.product(*(dfa._initial_states() for dfa in dfas))
+    ]
+    visited = set()
+    while queue:
+        word, states = queue.pop(0)
+        yield word, states
+        for letter in alphabet:
+            word2 = word + [letter]
+            for states2 in itertools.product(*(dfa._next_states([state],letter) for dfa,state in zip(dfas,states))):
+                if states2 in visited: continue
+                visited.add(states2)
+                queue.append((word2,states2))
+
+def word_with_labels(dfas:Iterable[DFA], labels):
+    """return a word in the product dfa which has the desired labels."""
+    for word, states in iter_prod(*dfas):
+        l = tuple(state in dfa._terminal_states() for dfa, state in zip(dfas, states))
+        if l != labels: continue
+        return word
+    return None

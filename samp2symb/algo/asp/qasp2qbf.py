@@ -45,7 +45,7 @@ WARNING_SHOWN_NOT_QUANTIFIED = """Atom #shown but not quantified, \
 it will not be shown: {}."""
 UNSAT = """The Quantified Logic Program is UNSAT. \
 Please ignore the next messages."""
-OUTPUT_FILE = "out.qasp2qbf"
+OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "out.qasp2qbf")
 PIPE_OPTION = "--pipe"
 PIPE_CMD = """clingo --output=smodels {} | qasp2qbf.py --no-warnings | \
 lp2normal2 | lp2acyc | lp2sat | qasp2qbf.py --cnf2qdimacs | \
