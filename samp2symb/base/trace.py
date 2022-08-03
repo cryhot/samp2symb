@@ -367,12 +367,18 @@ class Sample():
         alphabet = set()
         for trace in self:
             if isinstance(trace, PropTrace):
-                [chr(ord('p')+i) for i in range(len(self.positive[0].vector[0]))]
                 # return trace.literals
                 return list(itertools.product((0,1), repeat=trace.numVariables))
             elif isinstance(trace, AlphaTrace):
                 alphabet.update(trace.vector)
         return list(alphabet)
+    
+    @property
+    def literals(self):
+        for trace in self:
+            if isinstance(trace, PropTrace):
+                return trace.literals
+        return None
 
     def isFormulaConsistent(self, f):
 
@@ -552,7 +558,11 @@ class Sample():
             tracesFile.write("---\n")
             tracesFile.write(','.join(self.operators) + '\n')
             tracesFile.write("---\n")
-            tracesFile.write(str(self.depthOfSolution) + '\n')
+            # tracesFile.write(str(self.depthOfSolution) + '\n')
+            if self.literals is not None:
+                tracesFile.write(','.join(str(l) for l in self.literals) + '\n')
+            else:
+                tracesFile.write(str(self.alphabet) + '\n')
             tracesFile.write("---\n")
             tracesFile.write(str(self.possibleSolution))
 
@@ -680,3 +690,123 @@ class Sample():
 
             return sample
 
+
+    def generator_dfa_in_batch_advanced(self, 
+        formula=None,
+        filename='generated.words', 
+        num_traces=(5,5),
+        length_traces=None, 
+        alphabet = ['p','q','r'], 
+        length_range=(5,15),
+        is_words=True,
+        operators=['G', 'F', '!', 'U', '&','|', 'X']
+    ):
+        """fills """
+        from .dfa import DFA
+
+        total_num_positives = num_traces[0]
+        total_num_negatives = num_traces[1]
+        ver = True
+
+        # Generating positive words
+        print("Generating positive words")
+        ltldfa = formula.to_dfa(literals=alphabet)
+        ltldfa_list = []
+
+        ### Some super optimization
+        
+        final_states = ltldfa.final_states
+        for state in ltldfa.final_states:
+            new_dfa = DFA(ltldfa.init_state, [state], ltldfa.transitions)
+            new_dfa.generate_num_accepting_words(length_range[1])
+            ltldfa_list.append(new_dfa)
+
+        num_accepted_words_length = {}
+        num_words_per_length = {}
+        for i in range(length_range[0], length_range[1]+1):
+            num_accepted_words_length[i] = sum([dfa.number_of_words[(dfa.init_state,i)] for dfa in ltldfa_list])
+        
+        total_accepted_words = sum(num_accepted_words_length.values())
+        for i in range(length_range[0], length_range[1]):
+            num_words_per_length[i] = int((num_accepted_words_length[i]/total_accepted_words)*total_num_positives)
+
+        num_words_per_length[length_range[1]] = total_num_positives - sum(num_words_per_length.values())
+
+        for i in range(length_range[0], length_range[1]+1):
+            num_words_per_dfa = {}
+            non_empty_dfas = []
+            for dfa in ltldfa_list:
+                if dfa.number_of_words[(dfa.init_state, i)] != 0:
+                    non_empty_dfas.append(dfa)
+
+            num_remaining_words = num_words_per_length[i] - len(non_empty_dfas)
+            for dfa in non_empty_dfas[:-1]:
+                num_words_per_dfa[dfa] = 1 + int((dfa.number_of_words[(dfa.init_state,i)]/num_accepted_words_length[i])*num_remaining_words)
+                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                for word in new_words:
+                    trace = PropTrace([list(letter) for letter in word], literals=alphabet)
+                    self.append(trace, label=True)
+                    assert(ltldfa.is_word_in(word)==True)
+            
+            dfa = ltldfa_list[-1]
+            num_words_per_dfa[dfa] = num_words_per_length[i] - sum(num_words_per_dfa.values())
+            new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+            for word in new_words:
+                trace = PropTrace([list(letter) for letter in word], literals=alphabet)
+                self.append(trace, label=True)
+                assert(ltldfa.is_word_in(word)==True)
+
+        # Generating negative words
+        print("Generating negative words")
+        ltldfa_c = ltldfa.complement()
+        ltldfa_list = []
+
+        ### Some super optimization
+        
+        for state in ltldfa_c.final_states:
+            new_dfa = DFA(ltldfa_c.init_state, [state], ltldfa_c.transitions)
+            new_dfa.generate_num_accepting_words(length_range[1])
+            ltldfa_list.append(new_dfa)
+
+        num_accepted_words_length = {}
+        num_words_per_length = {}
+        for i in range(length_range[0], length_range[1]+1):
+            num_accepted_words_length[i] = sum([dfa.number_of_words[(dfa.init_state,i)] for dfa in ltldfa_list])
+        
+        total_accepted_words = sum(num_accepted_words_length.values())
+        for i in range(length_range[0], length_range[1]):
+            num_words_per_length[i] = int((num_accepted_words_length[i]/total_accepted_words)*total_num_positives)
+
+        num_words_per_length[length_range[1]] = total_num_negatives - sum(num_words_per_length.values())
+
+
+        for i in range(length_range[0], length_range[1]+1):
+            num_words_per_dfa = {}
+            non_empty_dfas = []
+            for dfa in ltldfa_list:
+                if dfa.number_of_words[(dfa.init_state, i)] != 0:
+                    non_empty_dfas.append(dfa)
+
+            num_remaining_words = num_words_per_length[i] - len(non_empty_dfas)
+            for dfa in non_empty_dfas[:-1]:
+                num_words_per_dfa[dfa] = 1 + int((dfa.number_of_words[(dfa.init_state,i)]/num_accepted_words_length[i])*num_remaining_words)
+                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                for word in new_words:
+                    trace = PropTrace([list(letter) for letter in word], literals=alphabet)
+                    self.append(trace, label=False)
+                    assert(ltldfa.is_word_in(word)==False)
+            
+            dfa = ltldfa_list[-1]
+            num_words_per_dfa[dfa] = num_words_per_length[i] - sum(num_words_per_dfa.values())
+            new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+            for word in new_words:
+                trace = PropTrace([list(letter) for letter in word], literals=alphabet)
+                self.append(trace, label=False)
+                assert(ltldfa.is_word_in(word)==False)
+            
+
+        # self.alphabet = alphabet
+        # self.letter2pos = {alphabet[i]:i for i in range(len(alphabet))}
+        self.operators = operators
+        self.possibleSolution = formula
+        self.dump(filename)

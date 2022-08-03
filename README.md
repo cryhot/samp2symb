@@ -30,6 +30,12 @@ Please read help (`./infer -h` and subcommands help) for more info.
 
 <!-- insert help -->
 
+### Generating data
+
+```sh
+./genBenchmarks -f traces/formulas.txt -o traces/ltlf/ --sizes 10,0 50,0 100,0 200,0 500,0 --lengths 10
+```
+
 ## Acknowledgments
 
 This project reuses code from [cryhot/samples2LTL](https://github.com/cryhot/samples2LTL) and [rajarshi008/Scarlet](https://github.com/rajarshi008/Scarlet/).

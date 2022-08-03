@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import argparse
+import os, shutil
+import datetime
+
+from samp2symb.base.trace import Sample, PropTrace
+from samp2symb.base.ltl import Formula
+
+def genSysliteTraces(input_file, output_file):
+    # allTraces = Sample(positive=[], negative=[], is_words=False)
+    # allTraces.readFromFile(input_file)
+    allTraces = Sample.load(input_file, type=PropTrace)
+
+    # num_prop = len(allTraces.positive[0].vector[0])
+    num_prop = allTraces.numVariables
+
+    # prop_list = allTraces.alphabet
+    prop_list = allTraces.literals
+    
+    allLines= [','.join(prop_list)]
+    allLines.append('\n---\n')
+
+    for trace in allTraces.positive:
+        trace_line = ';'.join([','.join([str(int(prop)) for prop in letter]) for letter in trace.vector])
+        allLines.append(trace_line+'\n')
+
+    allLines.append('---')
+
+    for trace in allTraces.negative:
+        trace_line = ';'.join([','.join([str(int(prop)) for prop in letter]) for letter in trace.vector])
+        allLines.append('\n'+trace_line)
+
+    syslite_file = output_file
+    f = open(syslite_file, "w")
+    f.writelines(allLines)
+
+
+def generateBenchmarks(formula_file, trace_type, sample_sizes, trace_lengths, operators, total_num, output_folder, syslite, gen_method):
+
+    traces_folder = output_folder+'/TracesFiles' 
+    os.makedirs(traces_folder)
+
+    #if trace_type == 'words':
+    #	words_folder = output_folder+'/TracesFiles/'
+    #	os.makedirs(words_folder)
+
+    if syslite:
+        syslite_folder = output_folder+'/SysliteFiles'
+        os.makedirs(syslite_folder)
+
+    generated_files = []
+    with open(formula_file, 'r') as file:
+        formula_num=0
+        for line in file:
+            #Has a makeshift addition of trace lengths
+            try:
+                formula_text, alphabet, lengths = line.split(';')
+            except ValueError:
+                formula_text, alphabet = line.split(';')
+            else:
+                trace_lengths = lengths.split(',')
+                trace_lengths = [(int(i),int(i)) for i in trace_lengths]
+            alphabet = alphabet.split(',')
+            alphabet[-1] = alphabet[-1].rstrip('\n')
+
+            formula = Formula.convertTextToFormula(formula_text)
+    
+            formula_num+=1
+            print('---------------Generating Benchmarks for formula %s---------------'%formula.prettyPrint())
+            
+            for size in sample_sizes:
+                for length_range in trace_lengths:
+                    if len(length_range) == 1: length_range = (length_range[0], length_range[0])
+                    for num in range(total_num):
+                        length_mean = (length_range[0]+length_range[1])//2
+                        sample=Sample()
+
+                        trace_file = os.path.join(traces_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.trace')
+                        generated_files.append(trace_file)
+
+                        if gen_method=='dfa_method':
+                            sample.generator_dfa_in_batch_advanced(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+                        # sample.generator(formula=formula, length_range=length_range, num_traces=size, filename=word_file, is_word=(trace_type=='words'))
+                        elif gen_method=='random':
+                            sample.generator(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+                        elif gen_method=='random_walk':
+                            sample.generator_random_walk(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+
+
+                            #convertFileType(wordfile=word_file, tracefile=trace_file, operators=operators)
+                        # else:
+
+                        # 	if gen_method=='dfa_method':
+                        # 		sample.generator_dfa_in_batch_advanced(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+                        # 	elif gen_method=='random':
+                        # 		sample.generator(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+                        # 	elif gen_method=='random_walk':
+                        # 		sample.generator_random_walk(formula=formula, length_range=length_range, num_traces=size, alphabet=alphabet, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+                            
+
+                        # sample.generator(formula=formula, length_range=length_range, num_traces=size, filename=trace_file, is_words=(trace_type=='words'), operators=operators)
+
+
+                        if sample.isFormulaConsistent(formula):
+                            print("Formula is consistent with sample")
+
+                        if syslite:
+                            syslite_file = os.path.join(syslite_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.trace')
+                            genSysliteTraces(trace_file, syslite_file)
+
+    return generated_files
+
+
+#Data type for parser
+def tupleList(s):
+    try:
+        return tuple(map(int , s.split(',')))
+    except:
+        print("Wrong format; provide comma separated values")
+
+def generateSmallBenchmarks(generated_files, max_size, sizes):
+    
+    for filename in generated_files:
+        
+        # s = Sample(positive=[],negative=[])
+        # s.readFromFile(filename)
+        s = Sample.load(filename, type=PropTrace)
+        
+        for (i,j) in sizes:
+            
+            new_filename = filename.replace(f"nw:{max(max_size):03}", f"nw:{max(i,j):03}")
+            # new_positive = s.positive[:i]
+            # new_negative = s.negative[:j]
+            # new_s = Sample(positive=new_positive, negative=new_negative, alphabet=s.alphabet, possibleSolution=s.possibleSolution)
+            # new_s = Sample(new_positive, new_negative, possibleSolution=s.possibleSolution)
+            new_s = s.copy()
+            new_s.acceptedTraces = s.acceptedTraces[:i]
+            new_s.rejectedTraces = s.rejectedTraces[:j]
+            new_s.dump(new_filename)
+            new_sysfilename = new_filename.replace('TracesFiles', 'SysliteFiles')
+            if os.path.exists(os.path.dirname(new_sysfilename)):
+                genSysliteTraces(new_filename, new_sysfilename)
+
+
+def main():
+
+    parser = argparse.ArgumentParser(
+        description="Generates a benchmark of samples from LTL formulas.",
+    )
+    parser.add_argument('-f', '--formula_file', metavar="FILE", dest='formula_file', default = 'formulas.txt')
+    parser.add_argument('--trace_type', dest='trace_type', default = 'trace', choices=['trace', 'words'])
+    parser.add_argument('--operators', dest='operators', default = ['F', 'G', 'X', '!', '&', '|'], type=list, help='default: "FGX!&|"')
+    parser.add_argument('--sizes', metavar="POS,NEG", dest='sample_sizes', default=[(10,10),(50,50),(100,100),(200,200),(500,500)], nargs='+', type=tupleList)
+    parser.add_argument('--lengths', metavar="MIN[,MAX]", dest='trace_lengths', default=[(6,6)], nargs='+', type=tupleList,)
+    parser.add_argument('--total_num', metavar='INT', dest='total_num', default=1, type=int)
+    parser.add_argument('-o', '--output_folder', metavar='DIR', dest='output_folder', default = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    parser.add_argument('--syslite', dest='syslite', action='store_true', default=False)
+    parser.add_argument('--generation_method', dest='gen_method', default='dfa_method', choices=['dfa_method', 'random', 'random_walk'])
+
+    args,unknown = parser.parse_known_args()
+    formula_file = args.formula_file
+    trace_type = args.trace_type
+    sample_sizes = list(args.sample_sizes)
+    trace_lengths = list(args.trace_lengths)
+    output_folder = args.output_folder
+    syslite = bool(args.syslite)
+    operators = list(args.operators)
+    total_num = int(args.total_num)
+    gen_method = args.gen_method
+
+    #For generating a fresh set of benchmarks
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+
+    os.makedirs(output_folder)
+    shutil.copyfile(formula_file, os.path.join(output_folder, os.path.basename(formula_file)))
+    sample_sizes.sort()
+    max_size = sample_sizes[-1] # assume that there is no other size with more neg traces
+    generated_files = generateBenchmarks(formula_file, trace_type, [max_size], trace_lengths, operators, total_num, output_folder, syslite, gen_method)
+    #generating small benchmarks from large ones
+    generateSmallBenchmarks(generated_files, max_size, sample_sizes[:-1])
+
+if __name__=='__main__':
+    main()
