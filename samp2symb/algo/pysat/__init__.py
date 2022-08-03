@@ -184,23 +184,34 @@ class DFASolver():
 
         return ua_reach_id
 
-    def _generate_clauses_word(self, word) -> Callable[[int],Var]:
+    def _generate_clauses_word(self, word, *, break_symmetry:bool=True) -> Callable[[int],Var]:
         """
             Generate missing prefixes clauses.
 
             :return: word reach state ids
             :rtype: function(q:int):int
         """
-        if isinstance(word, AlphaTrace):
-            assert word.finite, "finite word expected"
-            word = word.vector
-        
         node = self.classification
         for letter in word:
             if letter not in node.keys():
-                node[letter] = Classification(
-                    label = self._generate_clauses_word_trans(node.label, letter),
-                )
+                ua_reach_id = self._generate_clauses_word_trans(node.label, letter)
+                if break_symmetry:
+                    # total ordering of prefixes based on the order of registering to the prefix tree
+                    u_reach_ids = []
+                    self.classification.map_reduce(map = lambda label: u_reach_ids.append(label))
+                    break_symmetry_clauses = (
+                        ([
+                            +u_reach_id(p)
+                            for u_reach_id in u_reach_ids
+                        ]+[
+                            -ua_reach_id(p+1),
+                        ], None)
+                        for p in range(self.N-1)
+                    )
+                    self._add_clauses(
+                        break_symmetry_clauses,
+                    )
+                node[letter] = Classification(label=ua_reach_id)
             node = node[letter]
         return node.label
 

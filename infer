@@ -162,18 +162,6 @@ def run_SpecificDFA(args:argparse.Namespace):
             dfa_new_filename=args.dfa_new_filename or args.dfa_filename,
             dfa_candidate_filename=args.dfa_candidate_filename,
         )
-        dfa = find_specific_dfa(
-            sample,
-            start_size=args.start_size,
-            max_size=args.max_size,
-            **method_kwargs,
-            timeout=args.timeout,
-            dbg_dots = True, # for debugging
-            json_stats=json_stats,
-            dfa_filename=args.dfa_filename,
-            dfa_new_filename=args.dfa_new_filename or args.dfa_filename,
-            dfa_candidate_filename=args.dfa_candidate_filename,
-        )
     except TimeoutError:
         pass
 

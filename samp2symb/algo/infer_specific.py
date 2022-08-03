@@ -120,7 +120,7 @@ def find_specific_formula(
 
         # check that L(A') \subseteq L(A)
         neg_trace = None
-        if force_sub: neg_trace = False # skip conterexample
+        if force_sub and check_horizon>=float('inf'): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
             f = Formula(['!', Formula(['->', formula_candidate, formula]) ]).to_dfa(literals)
@@ -149,7 +149,7 @@ def find_specific_formula(
         
         # check that L(A') \subset L(A)
         neg_trace = None
-        if force_nsup: neg_trace = False # skip conterexample
+        if force_nsup and check_horizon>=float('inf'): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
             f = Formula(['!', Formula(['->', formula, formula_candidate]) ]).to_dfa(literals)
