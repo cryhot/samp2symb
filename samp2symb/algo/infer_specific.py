@@ -61,6 +61,7 @@ def find_specific_formula(
         check_finite=check_finite in [True, None],
         check_infinite=check_finite in [False, None],
     )
+    if check_horizon<float('inf'): json_stats['method']['check_horizon'] = check_horizon
     json_stats.setdefault('sample', dict()).update(
         sample.json_summary(),
     )
@@ -70,6 +71,7 @@ def find_specific_formula(
         traces_sample = len(effective_sample), # used sample traces
         traces_ce = 0, # generated counter-example traces
     )
+    json_stats.setdefault('elapsed', dict())
     json_stats['progress']['formulas'].append(formula.prettyPrint())
 
     while True:
@@ -99,6 +101,18 @@ def find_specific_formula(
             print(f"Best formula before interruption: {formula}")
             raise err
         except StopIteration:
+            if size >= start_size:
+                json_stats['elapsed'][size] = dict(
+                    total=tictoc_total.tocvalue(),
+                    solver=time_solver,
+                    ce=time_transFinite+time_transInfinite+time_genFinite+time_genInfinite,
+                    ce_trans=time_transFinite+time_transInfinite,
+                    ce_trans_finite=time_transFinite,
+                    ce_trans_infinite=time_transInfinite,
+                    ce_gen=time_genFinite+time_genInfinite,
+                    ce_gen_finite=time_genFinite,
+                    ce_gen_infinite=time_genInfinite,
+                )
             size += 1
             if size > max_size: break
             logger.debug(f"trying size={size}")
@@ -190,17 +204,6 @@ def find_specific_formula(
         f"{time_transFinite:.3f}s+{time_transInfinite:.3f}s={time_transFinite+time_transInfinite:.3f}s on translating formulas to DFA/Buchi Automata, "
         f"{time_genFinite:.3f}s+{time_genInfinite:.3f}s={time_genFinite+time_genInfinite:.3f}s on generating finite/infinite counterexamples"
         ")")
-    json_stats['elapsed'] = dict(
-        total=tictoc_total.tocvalue(),
-        solver=time_solver,
-        ce=time_transFinite+time_transInfinite+time_genFinite+time_genInfinite,
-        ce_trans=time_transFinite+time_transInfinite,
-        ce_trans_finite=time_transFinite,
-        ce_trans_infinite=time_transInfinite,
-        ce_gen=time_genFinite+time_genInfinite,
-        ce_gen_finite=time_genFinite,
-        ce_gen_infinite=time_genInfinite,
-    )
     return formula
 
 
@@ -279,6 +282,7 @@ def find_specific_dfa(
         traces_sample = len(effective_sample), # used sample traces
         traces_ce = 0, # generated counter-example traces
     )
+    json_stats.setdefault('elapsed', dict())
     dot_kwargs=dict(keep_alphabet=True, group_separator=";")
     
     dfa_path = None
@@ -310,6 +314,15 @@ def find_specific_dfa(
             # print(f"Best formula before interruption: {formula}")
             raise err
         except StopIteration:
+            if size >= start_size:
+                json_stats['elapsed'][size] = dict(
+                    total=tictoc_total.tocvalue(),
+                    solver=time_solver,
+                    ce=time_genFinite,#+time_genInfinite,
+                    ce_gen=time_genFinite,#+time_genInfinite,
+                    ce_gen_finite=time_genFinite,
+                    # ce_gen_infinite=time_genInfinite,
+                )
             size += 1
             if size > max_size: break
             logger.debug(f"trying size={size}")
@@ -383,13 +396,5 @@ def find_specific_dfa(
         f"{time_solver:.3f}s on solving, "
         f"{time_genFinite:.3f}s on generating finite counterexamples"
         ")")
-    json_stats['elapsed'] = dict(
-        total=tictoc_total.tocvalue(),
-        solver=time_solver,
-        ce=time_genFinite,#+time_genInfinite,
-        ce_gen=time_genFinite,#+time_genInfinite,
-        ce_gen_finite=time_genFinite,
-        # ce_gen_infinite=time_genInfinite,
-    )
     return dfa
 

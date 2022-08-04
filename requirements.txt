@@ -1,5 +1,6 @@
 
 pytictoc
+termcolor
 
 lark
 # lark-parser

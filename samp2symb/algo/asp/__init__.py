@@ -319,24 +319,24 @@ class LTLSolver():
         ctl.load(self.ENCODING_FILE)
         ctl.add("base", [], program.getvalue())
         ctl.ground([("base", [])])
-        # with ctl.solve(yield_=True, async_=True) as handle:
-        #     models = iter(handle)
-        #     while True:
-        #         # if not handle.wait(): break
-        #         # print(handle.wait(0))
-        #         while not handle.wait(0):
-        #             if tictoc_total.tocvalue() > timeout:
-        #                 raise TimeoutError()
-        #         try: model = next(models)
-        #         except StopIteration: break
-        #         symbols = model.symbols(shown=True)
-        #         formula = self._symbols2formula(symbols)
-        #         yield formula
-        with ctl.solve(yield_=True) as handle:
-            for model in handle:
+        with ctl.solve(yield_=True, async_=True) as handle:
+            models = iter(handle)
+            while True:
+                # if not handle.wait(): break
+                # print(handle.wait(0))
+                while not handle.wait(0):
+                    if tictoc_total.tocvalue() > timeout:
+                        raise TimeoutError()
+                try: model = next(models)
+                except StopIteration: break
                 symbols = model.symbols(shown=True)
                 formula = self._symbols2formula(symbols)
                 yield formula
+        # with ctl.solve(yield_=True) as handle:
+        #     for model in handle:
+        #         symbols = model.symbols(shown=True)
+        #         formula = self._symbols2formula(symbols)
+        #         yield formula
     
     def __str__(self) -> str:
         """Return the ASP program."""
