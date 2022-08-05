@@ -46,6 +46,7 @@ def find_specific_formula(
     trace1 = next(iter(sample))
     literals = trace1.literals
     effective_sample = sample.copy()
+    effective_force_nsup = force_nsup
     if grow_sample:
         effective_sample.clear()
         traces = sorted(((trace,label) for trace,label in sample.items()), key=lambda x: len(x[0].vector))
@@ -79,14 +80,18 @@ def find_specific_formula(
         if formulas_candidate is None:
             solver = LTLSolver(size=size, atoms=literals)
             solver.add_sample(effective_sample)
-            if force_sub: solver.add_formula(formula, sup=True, sub=False, **formula_kwargs)
-            elif force_nsup: solver.add_formula(formula, sub=False, **formula_kwargs)
+            if force_sub or effective_force_nsup:
+                solver.add_formula(formula,
+                    sup=True  if force_sub  else None,
+                    sub=False if effective_force_nsup else None,
+                    **formula_kwargs,
+                )
             if program_file is not None:
                 path=program_file.format()
                 with open(path, 'w') as fp: fp.write(str(solver))
 
             if solver.requires_QASP:
-                assert force_nsup, "we supposed that there will be progress in 1 iteration"
+                assert effective_force_nsup, "we supposed that there will be progress in 1 iteration"
                 formulas_candidate = filter((lambda f: f is not None), (solver.solve_qbf(timeout=timeout-tictoc_total.tocvalue()),))
             else:
                 formulas_candidate = solver.iter_solve_asp(timeout=timeout-tictoc_total.tocvalue())
@@ -101,6 +106,10 @@ def find_specific_formula(
             print(f"Best formula before interruption: {formula}")
             raise err
         except StopIteration:
+            # if effective_force_nsup and check_horizon<2**(size+formula.size): # relax problem to find longer counter-examples
+            #     effective_force_nsup = False
+            #     if dbg_dots: sys.stdout.write(termcolor.colored("~", color='cyan', attrs=['bold'])); sys.stdout.flush()
+            #     formulas_candidate = None; continue
             if size >= start_size:
                 json_stats['elapsed'][size] = dict(
                     total=tictoc_total.tocvalue(),
@@ -115,10 +124,10 @@ def find_specific_formula(
                 )
             size += 1
             if size > max_size: break
+            effective_force_nsup = force_nsup
             logger.debug(f"trying size={size}")
             if dbg_dots: sys.stdout.write(termcolor.colored("+", color='cyan', attrs=['bold'])); sys.stdout.flush()
-            formulas_candidate = None
-            continue
+            formulas_candidate = None; continue
         finally:
             time_solver += tictoc_solver.tocvalue()
 
@@ -128,13 +137,12 @@ def find_specific_formula(
             effective_sample.append(trace, label=label) # ...ensure that it is considered
             json_stats['progress']['traces_sample'] += 1
             del traces[i]
-            formulas_candidate = None
-            break
+            formulas_candidate = None; break
         if formulas_candidate is None: continue
 
         # check that L(A') \subseteq L(A)
         neg_trace = None
-        if force_sub and check_horizon>=float('inf'): neg_trace = False # skip conterexample
+        if force_sub and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
             f = Formula(['!', Formula(['->', formula_candidate, formula]) ]).to_dfa(literals)
@@ -156,14 +164,13 @@ def find_specific_formula(
         if neg_trace is not None and neg_trace is not False: # found negative counterexample
             effective_sample.append(neg_trace, label=False)
             json_stats['progress']['traces_ce'] += 1
-            formulas_candidate = None
             if dbg_dots: sys.stdout.write(termcolor.colored(".", color='red', attrs=['bold'])); sys.stdout.flush()
             logger.debug(f"considering new negative counterexample")
-            continue
+            formulas_candidate = None; continue
         
         # check that L(A') \subset L(A)
         neg_trace = None
-        if force_nsup and check_horizon>=float('inf'): neg_trace = False # skip conterexample
+        if force_nsup and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
             f = Formula(['!', Formula(['->', formula, formula_candidate]) ]).to_dfa(literals)
@@ -187,11 +194,10 @@ def find_specific_formula(
                 effective_sample.append(neg_trace, label=False)
                 json_stats['progress']['traces_ce'] += 1
             formula = formula_candidate
-            formulas_candidate = None
             if dbg_dots: sys.stdout.write(termcolor.colored("!", color='red', attrs=['bold'])); sys.stdout.flush()
             json_stats['progress']['formulas'].append(formula.prettyPrint())
             logger.info(f"found new formula: {formula_candidate.prettyPrint()}")
-            continue
+            formulas_candidate = None; continue
         
         if dbg_dots: sys.stdout.write(termcolor.colored(".", color='yellow', attrs=['bold'])); sys.stdout.flush()
         # logger.debug(f"found equivalent formula")
@@ -296,8 +302,12 @@ def find_specific_dfa(
         if dfas_candidate is None:
             solver = DFASolver(size, alphabet=alphabet)
             solver.add_sample(effective_sample)
-            if force_sub: solver.add_dfa(dfa, sup=True, sub=False, **dfa_kwargs)
-            elif force_nsup: solver.add_dfa(dfa, sub=False, **dfa_kwargs)
+            if force_sub or force_nsup:
+                solver.add_dfa(dfa,
+                    sup=True  if force_sub  else None,
+                    sub=False if force_nsup else None,
+                    **dfa_kwargs,
+                )
 
             dfas_candidate = solver.iter_solve_rc2(timeout=timeout-tictoc_total.tocvalue())
         
@@ -327,8 +337,7 @@ def find_specific_dfa(
             if size > max_size: break
             logger.debug(f"trying size={size}")
             if dbg_dots: sys.stdout.write(termcolor.colored("+", color='cyan', attrs=['bold'])); sys.stdout.flush()
-            dfas_candidate = None
-            continue
+            dfas_candidate = None; continue
         finally:
             time_solver += tictoc_solver.tocvalue()
 
@@ -338,8 +347,7 @@ def find_specific_dfa(
             effective_sample.append(trace, label=label) # ...ensure that it is considered
             json_stats['progress']['traces_sample'] += 1
             del traces[i]
-            dfas_candidate = None
-            break
+            dfas_candidate = None; break
         if dfas_candidate is None: continue
 
         # check that L(A') \subseteq L(A)
@@ -354,10 +362,9 @@ def find_specific_dfa(
         if neg_trace is not None and neg_trace is not False: # found negative counterexample
             effective_sample.append(neg_trace, label=False)
             json_stats['progress']['traces_ce'] += 1
-            dfas_candidate = None
             if dbg_dots: sys.stdout.write(termcolor.colored(".", color='red', attrs=['bold'])); sys.stdout.flush()
             logger.debug(f"considering new negative counterexample")
-            continue
+            dfas_candidate = None; continue
         
         # check that L(A') \subset L(A)
         neg_trace = None
@@ -373,7 +380,6 @@ def find_specific_dfa(
                 effective_sample.append(neg_trace, label=False)
                 json_stats['progress']['traces_ce'] += 1
             dfa = dfa_candidate
-            dfas_candidate = None
             if dbg_dots: sys.stdout.write(termcolor.colored("!", color='red', attrs=['bold'])); sys.stdout.flush()
             dfa_path = None
             if dfa_new_filename is not None:
@@ -381,7 +387,7 @@ def find_specific_dfa(
                 dfa.export_dot(dfa_path, **dot_kwargs)
             json_stats['progress']['dfas'].append(dfa_path)
             logger.info(f"found new dfa: {dfa_path}")
-            continue
+            dfas_candidate = None; continue
         if dbg_dots: sys.stdout.write(termcolor.colored(".", color='yellow', attrs=['bold'])); sys.stdout.flush()
         # logger.debug(f"found equivalent dfa")
         logger.debug(f"found equivalent dfa")

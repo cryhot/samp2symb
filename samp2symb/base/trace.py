@@ -410,7 +410,7 @@ class Sample():
         ans = []
         for value in (True, False):
             traces = __class__(
-                numVariables=self.numVariables,
+                # numVariables=self.numVariables,
                 tracesToAccept=split[True][value],
                 tracesToReject=split[False][value],
                 operators=self.operators,

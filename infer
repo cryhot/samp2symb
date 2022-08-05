@@ -27,7 +27,7 @@ def print_help(args:argparse.Namespace):
     args.parser.print_help(file=sys.stderr)
     exit(2)
 
-# -- problem_specific --------------------------------------------------------------------- #
+# -- problem_specific -------------------------------------------------------- #
 
 def createParser_problemSpecific_targetLtl(parser=None):
     parser = create_parser(parser,
@@ -68,10 +68,14 @@ def run_SpecificLTL(args:argparse.Namespace):
     from samp2symb.algo.infer_specific import find_specific_formula
     sample = Sample.load(args.sample_filename, type=PropTrace)
     sample = sample.positive # keep positive traces only
-    json_stats = dict()
+    json_stats = dict(
+        sample=dict(
+            filaname=args.sample_filename,
+        ),
+    )
     method_kwargs = {
         "CE":       dict(),
-        "SYMBOLIC": dict(force_sub=True),
+        "SYMBOLIC": dict(force_nsup=True, force_sub=True),
         "HYBRID":   dict(force_nsup=True),
     }[args.method]
 
@@ -142,10 +146,14 @@ def run_SpecificDFA(args:argparse.Namespace):
     from samp2symb.algo.infer_specific import find_specific_dfa
     sample = Sample.load(args.sample_filename, type=AlphaTrace)
     sample = sample.positive # keep positive traces only
-    json_stats = dict()
+    json_stats = dict(
+        sample=dict(
+            filaname=args.sample_filename,
+        ),
+    )
     method_kwargs = {
         "CE":       dict(),
-        "SYMBOLIC": dict(force_sub=True),
+        "SYMBOLIC": dict(force_nsup=True, force_sub=True),
         "HYBRID":   dict(force_nsup=True),
     }[args.method]
 

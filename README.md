@@ -5,7 +5,7 @@ _Python library for inferring symbolic structures (e.g., Linear temporal logic f
 
 ## Installation
 
-To install all dependencies, run the following script: [`./install.sh`](install.sh) (root privilege will be asked).
+To install all dependencies, run the following script: [`./install.sh`](install.sh) (do not use ~`sudo`~, root privilege will be asked when required).
 Run this script **at your own risk** (it is recommended to read it and to run only commands that you understand).
 
 One might intall only a subset of the dependencies:
