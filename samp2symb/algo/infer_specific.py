@@ -100,10 +100,20 @@ def find_specific_formula(
             formula_candidate = next(formulas_candidate)
             json_stats['progress']['inferred'] += 1
         except TimeoutError as err:
-            print(f"Best formula before timeout: {formula}")
+            logger.info(f"TIMED OUT: {tictoc_total.tocvalue():.3f}s elapsed ("
+                f"{time_solver:.3f}s on solving, "
+                f"{time_transFinite:.3f}s+{time_transInfinite:.3f}s={time_transFinite+time_transInfinite:.3f}s on translating formulas to DFA/Buchi Automata, "
+                f"{time_genFinite:.3f}s+{time_genInfinite:.3f}s={time_genFinite+time_genInfinite:.3f}s on generating finite/infinite counterexamples"
+                ")")
+            logger.debug(f"Best formula before timeout: {formula.prettyPrint()}")
             raise err
         except KeyboardInterrupt as err:
-            print(f"Best formula before interruption: {formula}")
+            logger.info(f"INTERRUPTED: {tictoc_total.tocvalue():.3f}s elapsed ("
+                f"{time_solver:.3f}s on solving, "
+                f"{time_transFinite:.3f}s+{time_transInfinite:.3f}s={time_transFinite+time_transInfinite:.3f}s on translating formulas to DFA/Buchi Automata, "
+                f"{time_genFinite:.3f}s+{time_genInfinite:.3f}s={time_genFinite+time_genInfinite:.3f}s on generating finite/infinite counterexamples"
+                ")")
+            logger.debug(f"Best formula before interruption: {formula.prettyPrint()}")
             raise err
         except StopIteration:
             # if effective_force_nsup and check_horizon<2**(size+formula.size): # relax problem to find longer counter-examples
@@ -145,20 +155,19 @@ def find_specific_formula(
         if force_sub and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
-            f = Formula(['!', Formula(['->', formula_candidate, formula]) ]).to_dfa(literals)
+            a = (~(formula_candidate >> formula)).to_dfa(literals)
             time_transFinite += tictoc_transFinite.tocvalue()
             tictoc_genFinite.tic()
-            try: neg_trace = f.generate_random_word_length(-1)
+            try: neg_trace = a.generate_random_word_length(-1)
             except RuntimeError: neg_trace = None
             else: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
             time_genFinite += tictoc_genFinite.tocvalue()
         if neg_trace is None and check_finite in [False, None]: # infinite trace
             tictoc_transInfinite.tic()
-            import spot
-            f1, f2 = formula_candidate.to_spot().translate(), spot.formula.Not(formula.to_spot()).translate()
+            a1, a2 = formula_candidate.to_spot().translate(), (~formula).to_spot().translate()
             time_transInfinite += tictoc_transInfinite.tocvalue()
             tictoc_genInfinite.tic()
-            neg_trace = f1.intersecting_word(f2)
+            neg_trace = a1.intersecting_word(a2)
             if neg_trace is not None: neg_trace = PropTrace.from_spot(neg_trace, literals)
             time_genInfinite += tictoc_genInfinite.tocvalue()
         if neg_trace is not None and neg_trace is not False: # found negative counterexample
@@ -173,20 +182,19 @@ def find_specific_formula(
         if force_nsup and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
         if neg_trace is None and check_finite in [True, None]: # finite trace
             tictoc_transFinite.tic()
-            f = Formula(['!', Formula(['->', formula, formula_candidate]) ]).to_dfa(literals)
+            a = (~(formula >> formula_candidate)).to_dfa(literals)
             time_transFinite += tictoc_transFinite.tocvalue()
             tictoc_genFinite.tic()
-            try: neg_trace = f.generate_random_word_length(-1)
+            try: neg_trace = a.generate_random_word_length(-1)
             except RuntimeError: neg_trace = None
             else: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
             time_genFinite += tictoc_genFinite.tocvalue()
         if neg_trace is None and check_finite in [False, None]: # infinite trace
             tictoc_transInfinite.tic()
-            import spot
-            f1, f2 = formula.to_spot().translate(), spot.formula.Not(formula_candidate.to_spot()).translate()
+            a1, a2 = formula.to_spot().translate(), (~formula_candidate).to_spot().translate()
             time_transInfinite += tictoc_transInfinite.tocvalue()
             tictoc_genInfinite.tic()
-            neg_trace = f1.intersecting_word(f2)
+            neg_trace = a1.intersecting_word(a2)
             if neg_trace is not None: neg_trace = PropTrace.from_spot(neg_trace, literals)
             time_genInfinite += tictoc_genInfinite.tocvalue()
         if neg_trace is not None: # found negative counterexample
@@ -203,13 +211,13 @@ def find_specific_formula(
         # logger.debug(f"found equivalent formula")
         logger.debug(f"found equivalent formula: {formula.prettyPrint()} <=> {formula_candidate.prettyPrint()}")
 
-    logger.debug(f"returning formula: {formula.prettyPrint()}")
     json_stats['formula'] = formula.prettyPrint()
     logger.info(f"{tictoc_total.tocvalue():.3f}s elapsed ("
         f"{time_solver:.3f}s on solving, "
         f"{time_transFinite:.3f}s+{time_transInfinite:.3f}s={time_transFinite+time_transInfinite:.3f}s on translating formulas to DFA/Buchi Automata, "
         f"{time_genFinite:.3f}s+{time_genInfinite:.3f}s={time_genFinite+time_genInfinite:.3f}s on generating finite/infinite counterexamples"
         ")")
+    logger.debug(f"returning formula: {formula.prettyPrint()}")
     return formula
 
 
@@ -319,9 +327,17 @@ def find_specific_dfa(
             json_stats['progress']['inferred'] += 1
         except TimeoutError as err:
             # print(f"Best formula before timeout: {formula}")
+            logger.info(f"TIMED OUT: {tictoc_total.tocvalue():.3f}s elapsed ("
+                f"{time_solver:.3f}s on solving, "
+                f"{time_genFinite:.3f}s on generating finite counterexamples"
+                ")")
             raise err
         except KeyboardInterrupt as err:
             # print(f"Best formula before interruption: {formula}")
+            logger.info(f"INTERRUPTED: {tictoc_total.tocvalue():.3f}s elapsed ("
+                f"{time_solver:.3f}s on solving, "
+                f"{time_genFinite:.3f}s on generating finite counterexamples"
+                ")")
             raise err
         except StopIteration:
             if size >= start_size:

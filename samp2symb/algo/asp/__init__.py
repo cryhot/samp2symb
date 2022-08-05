@@ -138,7 +138,7 @@ class LTLSolver():
 
         Returns:
             LTLSolver: self
-        """    
+        """
         phi, psi = "phi", self._fresh_name("psi")
         nodes = self._formula2nodes(formula)
         print(f"""%% define known formula {psi}\n""", file=self.program)
@@ -273,14 +273,15 @@ class LTLSolver():
 
         import subprocess, threading
         from subprocess import PIPE
+        cwd=os.path.dirname(__file__)
         p1 = subprocess.Popen(["clingo", "--output=smodels", self.ENCODING_FILE, "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf-8')
-        p2 = subprocess.Popen(["qasp2qbf.py"],                  stdin=p1.stdout, stdout=subprocess.PIPE)
-        p3 = subprocess.Popen(["lp2normal2"],                   stdin=p2.stdout, stdout=subprocess.PIPE)
-        p4 = subprocess.Popen(["lp2acyc"],                      stdin=p3.stdout, stdout=subprocess.PIPE)
-        p5 = subprocess.Popen(["lp2sat"],                       stdin=p4.stdout, stdout=subprocess.PIPE)
-        p6 = subprocess.Popen(["qasp2qbf.py", "--cnf2qdimacs"], stdin=p5.stdout, stdout=subprocess.PIPE)
-        p7 = subprocess.Popen(["caqe", "--qdo"],                stdin=p6.stdout, stdout=subprocess.PIPE)  # this is the call to the solver
-        p8 = subprocess.Popen(["qasp2qbf.py", "--interpret"],   stdin=p7.stdout, stdout=subprocess.PIPE, encoding='utf-8')
+        p2 = subprocess.Popen([f"{cwd}/qasp2qbf.py"],                    stdin=p1.stdout, stdout=subprocess.PIPE)
+        p3 = subprocess.Popen([f"{cwd}/bin/lp2normal2"],                   stdin=p2.stdout, stdout=subprocess.PIPE)
+        p4 = subprocess.Popen([f"{cwd}/bin/lp2acyc"],                      stdin=p3.stdout, stdout=subprocess.PIPE)
+        p5 = subprocess.Popen([f"{cwd}/bin/lp2sat"],                       stdin=p4.stdout, stdout=subprocess.PIPE)
+        p6 = subprocess.Popen([f"{cwd}/qasp2qbf.py", "--cnf2qdimacs"],   stdin=p5.stdout, stdout=subprocess.PIPE)
+        p7 = subprocess.Popen(["caqe", "--qdo"],                    stdin=p6.stdout, stdout=subprocess.PIPE)  # this is the call to the solver
+        p8 = subprocess.Popen([f"{cwd}/qasp2qbf.py", "--interpret"],     stdin=p7.stdout, stdout=subprocess.PIPE, encoding='utf-8')
         p1.stdin.write(program.getvalue())
         p1.stdin.close()
         result = []
@@ -319,19 +320,36 @@ class LTLSolver():
         ctl.load(self.ENCODING_FILE)
         ctl.add("base", [], program.getvalue())
         ctl.ground([("base", [])])
+
         with ctl.solve(yield_=True, async_=True) as handle:
             models = iter(handle)
             while True:
                 # if not handle.wait(): break
                 # print(handle.wait(0))
                 while not handle.wait(0):
-                    if tictoc_total.tocvalue() > timeout:
-                        raise TimeoutError()
+                    if tictoc_total.tocvalue() > timeout: raise TimeoutError()
+                if tictoc_total.tocvalue() > timeout: raise TimeoutError()
                 try: model = next(models)
                 except StopIteration: break
+                handle.get()
                 symbols = model.symbols(shown=True)
                 formula = self._symbols2formula(symbols)
                 yield formula
+
+        # import threading
+        # run_lock = threading.Lock()
+        # def interrupt():
+        #     if not run_lock.acquire(timeout=timeout):
+        #         ctl.interrupt()
+        # watchdog = threading.Thread(target=interrupt)
+        # with run_lock:
+        #     watchdog.start()
+        #     with ctl.solve(yield_=True) as handle:
+        #         for model in handle:
+        #             symbols = model.symbols(shown=True)
+        #             formula = self._symbols2formula(symbols)
+        #             yield formula
+        
         # with ctl.solve(yield_=True) as handle:
         #     for model in handle:
         #         symbols = model.symbols(shown=True)

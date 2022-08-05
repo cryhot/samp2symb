@@ -145,6 +145,12 @@ class Formula(SimpleTree):
                 return self.label < other.label
 
 
+    def __invert__(self): return Formula(['!', self])
+    def __and__(self, other): return Formula(['&', self, other])
+    def __or__(self, other): return Formula(['|', self, other])
+    def __rshift__(self, other): return Formula(['->', self, other])
+    def __lshift__(self, other): return Formula(['->', other, self])
+
     @classmethod
     def normalize(cls, f):
         """normalization in an incomplete method to eliminate equivalent formulas"""
@@ -221,6 +227,7 @@ class Formula(SimpleTree):
 
     @classmethod
     def convertTextToFormula(cls, formulaText):
+        """Opposite of __str__()"""
         f = Formula()
         try:
             formula_parser = Lark(r"""

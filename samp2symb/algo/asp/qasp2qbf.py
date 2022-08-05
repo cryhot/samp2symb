@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 """
 MIT License
@@ -405,8 +405,9 @@ class Translator:
             print("-{} 0".format(nvars))
 
     def interpret(self, fd):
+        returncode = 2
         for line in fd:
-            print(line, end='')
+            #print(line, end='')
             if line[0:2] == "V ":
                 shown = dict()
                 with open(OUTPUT_FILE) as show_fd:
@@ -414,27 +415,33 @@ class Translator:
                         match = re.match(r'(.*) (.*)', show_line)
                         if match:
                             shown[match.group(1)] = match.group(2)
-                out = "Answer:\n"
+                out = ""#Answer:\n"
                 for number in line[2:].split():
                     atom = shown.get(number)
                     if atom is not None:
                         out += atom + " "
-                print(out)
+                if out: print(out)
+            elif line.startswith("c Satisfiable"):
+                returncode = 0
+            elif line.startswith("c Unsatisfiable"):
+                returncode = 1
+            # else: print(line, end='')
+        return returncode
 
     def translate(self, fd):
         if self.options['cnf']:
-            self.cnf2qdimacs(fd)
+            return self.cnf2qdimacs(fd)
         elif self.options['interpret']:
-            self.interpret(fd)
+            return self.interpret(fd)
         else:
-            self.smodels2smodels(fd)
+            return self.smodels2smodels(fd)
 
     def run(self):
         for f in self.options['files']:
             with open(f) as fd:
                 self.translate(fd)
         if self.options['read_stdin']:
-            self.translate(sys.stdin)
+            return self.translate(sys.stdin)
 
 #
 # MAIN
@@ -449,6 +456,6 @@ if __name__ == "__main__":
         os.system(call)
     else:
         options = QaspArgumentParser().run()
-        Translator(options).run()
-    sys.exit(0)
+        returncode = Translator(options).run()
+    sys.exit(returncode)
 
