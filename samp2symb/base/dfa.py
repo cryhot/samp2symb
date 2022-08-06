@@ -172,7 +172,8 @@ class DFA:
             num_accepted_trans = self.number_of_words[(state, length-i+1)]
             if num_accepted_trans == 0: raise RuntimeError(f"no accepted word of length {length} exist")
             for letter in self.alphabet:
-                for next_state in self.transitions[state][letter]:
+                # for next_state in self.transitions[state][letter]: # this code is wrong because transitions[s][l] is a SINGLE state
+                for next_state in self._next_states([state], letter):
                     transition_list.append((letter, next_state))
                     prob_list.append(self.number_of_words[(next_state, length-i)]/num_accepted_trans)
 
