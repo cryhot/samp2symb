@@ -4,47 +4,13 @@ import sys, os, io, re
 import itertools, functools, operator
 from typing import *
 
-from samp2symb.base.trace import AlphaTrace
-from ...base.dfa import DFA
-
 import pysat, pysat.formula, pysat.solvers
 
-Var = NewType('Var', int)
+from samp2symb.base.trace import AlphaTrace
+from ...base.dfa import DFA
+from ...utils import timeout_generator
 
-import functools
-def timeout_generator(func):
-    "generator decorator: add a timeout argument"
-    import multiprocessing, queue
-    from pytictoc import TicToc
-    def run(func, args, kwargs, q):
-        for x in func(*args, **kwargs): q.put(x)
-        q.put(NotImplemented)
-        # q.close() # not working
-    @functools.wraps(func)
-    def wrapper(*args, timeout=float("inf"), **kwargs):
-        tictoc_total = TicToc()
-        tictoc_total.tic()
-        if timeout is None: timeout = float("inf")
-        if timeout<=0: raise TimeoutError(f"{func.__name__}: timeout is negative")
-        q = multiprocessing.Queue()
-        p = multiprocessing.Process(target=run, args=[func, args, kwargs, q], daemon=True)
-        p.start()
-        while True:
-            try:
-                t = timeout-tictoc_total.tocvalue()
-                if t<=0: raise queue.Empty()
-                if t==float("inf"): t=None
-                ans = q.get(timeout=t)
-            except queue.Empty:
-                p.terminate()
-                p.join()
-                raise TimeoutError(f"{func.__name__}: interrupted")
-            except (ValueError, OSError):
-                p.join(); return
-            else:
-                if ans is NotImplemented: p.join(); return
-                yield ans
-    return wrapper
+Var = NewType('Var', int)
 
 class DFASolver():
     def __init__(self, N, alphabet):
