@@ -160,7 +160,7 @@ class LTLSolver():
         print(f"""_exists(3,node({psi}(P))) :- node({psi}(P)).""", file=self.program)
         print(file=self.program)
 
-        check_horizon = min(check_horizon, 2**(self.size+formula.size))
+        check_horizon = min(check_horizon, 2**(2**self.size+2**formula.size))
         if check_finite is None: # check both finite and infinite traces
             LEN_HORIZON = f"""LEN_P=(0..{check_horizon}), LEN_C=(0..{check_horizon}), LEN_P+LEN_C<={check_horizon}, LEN_P+LEN_C>=1"""
         elif check_finite: # check only finite traces

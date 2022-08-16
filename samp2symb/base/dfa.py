@@ -188,8 +188,8 @@ class DFA:
 
         epsilon = 0.01
         
-        #if self.calculated_till < length_range[1]:
-        #	self.generate_num_accepting_words(length_range[1])
+        if self.calculated_till < length_range[1]:
+            self.generate_num_accepting_words(length_range[1])
 
         word_list = []
         last_path = [] 
@@ -413,7 +413,7 @@ class DFA:
             if group_separator is None:
                 # for (state_from,letter),state_to in self.transitions.items():
                 for state_from,trans in self.transitions.items():
-                    for letter,state_to in trans:
+                    for letter,state_to in trans.items():
                         output_file.write('\tq{} -> q{} [label="{}"];\n'.format(
                             self.states.index(state_from),
                             self.states.index(state_to),
@@ -487,6 +487,47 @@ class DFA:
     #     return writer.getvalue()
     def __contains__(self, word):
         return self.test_word(word)
+    
+    @classmethod
+    def from_aalpy(cls, dfa):
+        import aalpy.automata
+        assert isinstance(dfa, aalpy.automata.Dfa)
+
+        init_state = dfa.states.index(dfa.initial_state)
+        final_states = [
+            dfa.states.index(state)
+            for state in dfa.states
+            if state.is_accepting
+        ]
+        transitions = {
+            dfa.states.index(s1): {
+                l: dfa.states.index(s2)
+                for l,s2 in s1.transitions.items()
+            }
+            for s1 in dfa.states
+        }
+        
+        result = cls(init_state, final_states, transitions)
+        return result
+    
+    def to_aalpy(self):
+        import aalpy.automata
+        # states = []
+        s2state = {}
+        for s in self.states:
+            state = aalpy.automata.DfaState(s, s in self.final_states)
+            # states.append(state)
+            s2state[s] = state
+        for s,state in s2state.items():
+            state.transitions = {
+                l: s2state[s2]
+                for l,s2 in self.transitions[s].items()
+            }
+        dfa = aalpy.automata.Dfa(
+            initial_state=s2state[self.init_state],
+            states=list(s2state.values()),
+        )
+        return dfa
 
 
 
@@ -615,13 +656,16 @@ def ltl2dfa(formula, letter2pos, is_word):
 
     #d = atom2letters(alphabet = alphabet)
     original_dfa = formula.to_dfa() #using atoms
-    return dot2DFA(original_dfa, letter2pos, is_word)
+    return dot2DFA(original_dfa, letter2pos=letter2pos, is_word=is_word)
     
     # create a map from propostitions to the corresponding digits
 
 
 
-def dot2DFA(dot_string, letter2pos, is_word):
+def dot2DFA(dot_string, *, letter2pos=None, is_word, group_separator=None):
+
+    if isinstance(dot_string,io.TextIOBase):
+        dot_string = dot_string.read()
 
     dfa_info = dot_string.split('\n')
     mode = ''
@@ -649,7 +693,12 @@ def dot2DFA(dot_string, letter2pos, is_word):
             first_state, second_state = edge.split('->')
 
             label = label_info.split('\"')[1]
-            letters = atom2letters_new(label, letter2pos, is_word)
+            if letter2pos is not None:
+                letters = atom2letters_new(label, letter2pos, is_word)
+            elif group_separator is not None:
+                letters = label.split(group_separator)
+            else:
+                letters = [label]
             if first_state == '3':
                 #print(label, letters)
                 pass

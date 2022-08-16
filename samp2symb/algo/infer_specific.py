@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import contextlib
 import logging
 import termcolor
 import copy
@@ -73,8 +74,8 @@ def find_specific_formula(
                 json_stats['method'].update(timeout=timeout)
             json_stats.setdefault('sample', dict()).update(sample.json_summary())
             json_stats.setdefault('results', dict()).update(
-                inferred=0, # num total inferred formulas
-                formulas=[], # distinct inferred formulas
+                sat=0, unsat=0, # count of solver calls
+                formulas=[], # more and more specific inferred formulas
                 traces_sample = len(effective_sample), # used sample traces
                 traces_ce = 0, # generated counter-example traces
                 # elapsed = timekeeper.elapsed,
@@ -106,7 +107,7 @@ def find_specific_formula(
                     
                     try:
                         formula_candidate = next(formulas_candidate)
-                        json_stats['results']['inferred'] += 1
+                        json_stats['results']['sat'] += 1
                     except TimeoutError as err:
                         logger.info(f"TIMED OUT: {elapsed_summary()}")
                         logger.debug(f"Best formula before timeout: {formula.prettyPrint()}")
@@ -116,12 +117,14 @@ def find_specific_formula(
                         logger.debug(f"Best formula before interruption: {formula.prettyPrint()}")
                         raise err
                     except StopIteration:
-                        # if effective_force_nsup and check_horizon<2**(size+formula.size): # relax problem to find longer counter-examples
+                        # if effective_force_nsup and check_horizon<2**(2**size+2**formula.size): # relax problem to find longer counter-examples
+                        #     json_stats['results']['unsat'] += 1
                         #     effective_force_nsup = False
                         #     if dbg_dots: sys.stdout.write(termcolor.colored("~", color='cyan', attrs=['bold'])); sys.stdout.flush()
                         #     formulas_candidate = None; continue
                         with timekeeper[:].exclude:
                             if size >= start_size:
+                                json_stats['results']['unsat'] += 1
                                 json_stats['results']['elapsed'] = timekeeper.elapsed
                                 json_stats['iterations'][str(size)] = copy.deepcopy(json_stats['results'])
                         size += 1
@@ -138,13 +141,14 @@ def find_specific_formula(
                         if trace.evaluate(formula_candidate) == label: continue
                         effective_sample.append(trace, label=label) # ...ensure that it is considered
                         json_stats['results']['traces_sample'] += 1
+                        if dbg_dots: sys.stdout.write(termcolor.colored(".", color='green', attrs=['bold'])); sys.stdout.flush()
                         del traces[i]
                         formulas_candidate = None; break
                     if formulas_candidate is None: continue
 
                 # check that L(A') \subseteq L(A)
                 neg_trace = None
-                if force_sub and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
+                if force_sub and check_horizon>=2**(2**size+2**formula.size): neg_trace = False # skip conterexample
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula_candidate >> formula)).to_dfa(literals)
@@ -168,7 +172,7 @@ def find_specific_formula(
                 
                 # check that L(A') \subset L(A)
                 neg_trace = None
-                if force_nsup and check_horizon>=2**(size+formula.size): neg_trace = False # skip conterexample
+                if effective_force_nsup: neg_trace = False # skip conterexample
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula >> formula_candidate)).to_dfa(literals)
@@ -279,8 +283,8 @@ def find_specific_dfa(
                 json_stats['method'].update(timeout=timeout)
             json_stats.setdefault('sample', dict()).update(sample.json_summary())
             json_stats.setdefault('results', dict()).update(
-                inferred=0, # num total inferred dfas
-                dfas=[], # distinct inferred dfas
+                sat=0, unsat=0, # count of solver calls
+                dfas=[], # more and more specific inferred dfas
                 traces_sample = len(effective_sample), # used sample traces
                 traces_ce = 0, # generated counter-example traces
                 # elapsed = timekeeper.elapsed,
@@ -290,8 +294,10 @@ def find_specific_dfa(
 
             dfa_path = None
             if dfa_new_filename is not None:
-                dfa_path = dfa_new_filename.format(attempt=json_stats['results']['inferred'])
-                dfa.export_dot(dfa_path, **dot_kwargs)
+                dfa_path = dfa_new_filename.format(attempt=json_stats['results']['sat'])
+                assert dfa_path.endswith(".dot")
+                with contextlib.redirect_stdout(None): dfa.to_aalpy().save(dfa_path[:-4])
+                # dfa.export_dot(dfa_path, **dot_kwargs)
             json_stats['results']['dfas'].append(dfa_path)
 
             while True:
@@ -312,10 +318,13 @@ def find_specific_dfa(
                     try:
                         dfa_candidate = next(dfas_candidate)
                         with timekeeper[:].exclude:
+                            dfa_path = None
                             if dfa_candidate_filename is not None:
-                                dfa_path = dfa_candidate_filename.format(attempt=json_stats['results']['inferred'])
-                                dfa.export_dot(dfa_path, **dot_kwargs)
-                            json_stats['results']['inferred'] += 1
+                                dfa_path = dfa_candidate_filename.format(attempt=json_stats['results']['sat'])
+                                assert dfa_path.endswith(".dot")
+                                with contextlib.redirect_stdout(None): dfa_candidate.to_aalpy().save(dfa_path[:-4])
+                                # dfa_candidate.export_dot(dfa_path, **dot_kwargs)
+                            json_stats['results']['sat'] += 1
                     except TimeoutError as err:
                         # print(f"Best formula before timeout: {formula}")
                         logger.info(f"TIMED OUT: {elapsed_summary()}")
@@ -327,6 +336,7 @@ def find_specific_dfa(
                     except StopIteration:
                         with timekeeper[:].exclude:
                             if size >= start_size:
+                                json_stats['results']['unsat'] += 1
                                 json_stats['results']['elapsed'] = timekeeper.elapsed
                                 json_stats['iterations'][str(size)] = copy.deepcopy(json_stats['results'])
                         size += 1
@@ -342,6 +352,7 @@ def find_specific_dfa(
                         if trace.evaluate(dfa_candidate) == label: continue
                         effective_sample.append(trace, label=label) # ...ensure that it is considered
                         json_stats['results']['traces_sample'] += 1
+                        if dbg_dots: sys.stdout.write(termcolor.colored(".", color='green', attrs=['bold'])); sys.stdout.flush()
                         del traces[i]
                         dfas_candidate = None; break
                     if dfas_candidate is None: continue
@@ -377,10 +388,11 @@ def find_specific_dfa(
                     dfa = dfa_candidate
                     with timekeeper[:].exclude:
                         if dbg_dots: sys.stdout.write(termcolor.colored("!", color='red', attrs=['bold'])); sys.stdout.flush()
-                        dfa_path = None
                         if dfa_new_filename is not None:
-                            dfa_path = dfa_new_filename.format(attempt=json_stats['results']['inferred'])
-                            dfa.export_dot(dfa_path, **dot_kwargs)
+                            dfa_path = dfa_new_filename.format(attempt=json_stats['results']['sat'])
+                            assert dfa_path.endswith(".dot")
+                            with contextlib.redirect_stdout(None): dfa.to_aalpy().save(dfa_path[:-4])
+                            # dfa.export_dot(dfa_path, **dot_kwargs)
                         json_stats['results']['dfas'].append(dfa_path)
                         logger.info(f"found new dfa: {dfa_path}")
                     dfas_candidate = None; continue
@@ -393,7 +405,9 @@ def find_specific_dfa(
             dfa_path = None
             if dfa_filename is not None:
                 dfa_path = dfa_filename.format()
-                dfa.export_dot(dfa_path, **dot_kwargs)
+                assert dfa_path.endswith(".dot")
+                with contextlib.redirect_stdout(None): dfa.to_aalpy().save(dfa_path[:-4])
+                # dfa.export_dot(dfa_path, **dot_kwargs)
             logger.debug(f"returning dfa: {dfa_path}")
             logger.info(f"{elapsed_summary()}")
             if dfa_path is not None: logger.debug(f"returning dfa: {dfa}")

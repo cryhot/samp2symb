@@ -562,7 +562,7 @@ class Sample():
             if self.literals is not None:
                 tracesFile.write(','.join(str(l) for l in self.literals) + '\n')
             else:
-                tracesFile.write(str(self.alphabet) + '\n')
+                tracesFile.write(','.join(str(l) for l in self.alphabet) + '\n')
             tracesFile.write("---\n")
             tracesFile.write(str(self.possibleSolution))
 
@@ -675,9 +675,12 @@ class Sample():
                         possibleSolution = line.strip()
                         if possibleSolution.lower() == "none":
                             kwargs['possibleSolution'] = None
-                        else:
+                        elif issubclass(type, PropTrace):
                             from .ltl import Formula
                             kwargs['possibleSolution'] = Formula.loads(possibleSolution)
+                        elif issubclass(type, AlphaTrace):
+                            kwargs['possibleSolution'] = None
+                            # TODO: read automata
 
                     else:
                         break
@@ -702,15 +705,24 @@ class Sample():
         operators=['G', 'F', '!', 'U', '&','|', 'X']
     ):
         """fills """
+        from .ltl import Formula
         from .dfa import DFA
+
+        if is_words:
+            word2trace = lambda word, alphabet: AlphaTrace([letter for letter in word])
+        else:
+            word2trace = lambda word, alphabet: PropTrace([list(letter) for letter in word], literals=alphabet)
 
         total_num_positives = num_traces[0]
         total_num_negatives = num_traces[1]
+        print(num_traces)
         ver = True
 
         # Generating positive words
         print("Generating positive words")
-        ltldfa = formula.to_dfa(literals=alphabet)
+        if isinstance(formula, Formula): ltldfa = formula.to_dfa(literals=alphabet)
+        elif isinstance(formula, DFA): ltldfa = formula
+        else: raise TypeError("formula")
         ltldfa_list = []
 
         ### Some super optimization
@@ -742,19 +754,23 @@ class Sample():
             num_remaining_words = num_words_per_length[i] - len(non_empty_dfas)
             for dfa in non_empty_dfas[:-1]:
                 num_words_per_dfa[dfa] = 1 + int((dfa.number_of_words[(dfa.init_state,i)]/num_accepted_words_length[i])*num_remaining_words)
-                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
-                for word in new_words:
-                    trace = PropTrace([list(letter) for letter in word], literals=alphabet)
-                    self.append(trace, label=True)
-                    assert(ltldfa.is_word_in(word)==True)
+                try:
+                    new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                    for word in new_words:
+                        trace = word2trace(word, alphabet)
+                        self.append(trace, label=True)
+                        assert(ltldfa.is_word_in(word)==True)
+                except Exception: pass
             
             dfa = ltldfa_list[-1]
             num_words_per_dfa[dfa] = num_words_per_length[i] - sum(num_words_per_dfa.values())
-            new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
-            for word in new_words:
-                trace = PropTrace([list(letter) for letter in word], literals=alphabet)
-                self.append(trace, label=True)
-                assert(ltldfa.is_word_in(word)==True)
+            try:
+                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                for word in new_words:
+                    trace = word2trace(word, alphabet)
+                    self.append(trace, label=True)
+                    assert(ltldfa.is_word_in(word)==True)
+            except Exception: pass
 
         # Generating negative words
         print("Generating negative words")
@@ -778,6 +794,7 @@ class Sample():
             num_words_per_length[i] = int((num_accepted_words_length[i]/total_accepted_words)*total_num_positives)
 
         num_words_per_length[length_range[1]] = total_num_negatives - sum(num_words_per_length.values())
+        print(num_words_per_length.values())
 
 
         for i in range(length_range[0], length_range[1]+1):
@@ -790,19 +807,23 @@ class Sample():
             num_remaining_words = num_words_per_length[i] - len(non_empty_dfas)
             for dfa in non_empty_dfas[:-1]:
                 num_words_per_dfa[dfa] = 1 + int((dfa.number_of_words[(dfa.init_state,i)]/num_accepted_words_length[i])*num_remaining_words)
-                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
-                for word in new_words:
-                    trace = PropTrace([list(letter) for letter in word], literals=alphabet)
-                    self.append(trace, label=False)
-                    assert(ltldfa.is_word_in(word)==False)
+                try:
+                    new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                    for word in new_words:
+                        trace = word2trace(word, alphabet)
+                        self.append(trace, label=False)
+                        assert(ltldfa.is_word_in(word)==False)
+                except Exception: pass
             
             dfa = ltldfa_list[-1]
             num_words_per_dfa[dfa] = num_words_per_length[i] - sum(num_words_per_dfa.values())
-            new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
-            for word in new_words:
-                trace = PropTrace([list(letter) for letter in word], literals=alphabet)
-                self.append(trace, label=False)
-                assert(ltldfa.is_word_in(word)==False)
+            try:
+                new_words = dfa.generate_random_words_in_batch((i,i), num_words_per_dfa[dfa])
+                for word in new_words:
+                    trace = word2trace(word, alphabet)
+                    self.append(trace, label=False)
+                    assert(ltldfa.is_word_in(word)==False)
+            except Exception: pass
             
 
         # self.alphabet = alphabet

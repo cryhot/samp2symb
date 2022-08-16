@@ -5,8 +5,9 @@ import argparse
 import os, shutil
 import datetime
 
-from samp2symb.base.trace import Sample, PropTrace
+from samp2symb.base.trace import Sample, PropTrace, AlphaTrace
 from samp2symb.base.ltl import Formula
+from samp2symb.base.dfa import DFA
 
 def genSysliteTraces(input_file, output_file):
     # allTraces = Sample(positive=[], negative=[], is_words=False)
@@ -37,10 +38,18 @@ def genSysliteTraces(input_file, output_file):
     f.writelines(allLines)
 
 
-def generateBenchmarks(formula_file, trace_type, sample_sizes, trace_lengths, operators, total_num, output_folder, syslite, gen_method):
+def generateBenchmarks(formula_file, formula_type, trace_type, sample_sizes, trace_lengths, operators, total_num, output_folder, syslite, gen_method):
 
     traces_folder = output_folder+'/TracesFiles' 
     os.makedirs(traces_folder)
+    dfas_folder = output_folder+'/Dfas' 
+    os.makedirs(dfas_folder)
+
+    def str2length(text):
+        text = text.split(':',1)
+        start = int(text[0].strip())
+        stop = int(text[1].strip()) if len(text)>1 else start
+        return (start,stop)
 
     #if trace_type == 'words':
     #	words_folder = output_folder+'/TracesFiles/'
@@ -55,20 +64,33 @@ def generateBenchmarks(formula_file, trace_type, sample_sizes, trace_lengths, op
         formula_num=0
         for line in file:
             #Has a makeshift addition of trace lengths
+
             try:
                 formula_text, alphabet, lengths = line.split(';')
             except ValueError:
                 formula_text, alphabet = line.split(';')
             else:
                 trace_lengths = lengths.split(',')
-                trace_lengths = [(int(i),int(i)) for i in trace_lengths]
-            alphabet = alphabet.split(',')
-            alphabet[-1] = alphabet[-1].rstrip('\n')
-
-            formula = Formula.convertTextToFormula(formula_text)
-    
+                # trace_lengths = [(int(i),int(i)) for i in trace_lengths]
+                trace_lengths = [str2length(i) for i in trace_lengths]
+            alphabet = alphabet.rstrip('\n')
             formula_num+=1
-            print('---------------Generating Benchmarks for formula %s---------------'%formula.prettyPrint())
+
+            if formula_type == "ltl":
+                alphabet = alphabet.split(',')
+                formula = Formula.loads(formula_text)
+                print(f'---------------Generating Benchmarks for formula {formula.prettyPrint()}---------------')
+            elif formula_type == "dfa_spec":
+                alphabet = list(alphabet)
+                num_states, num_accepting_states = [int(i) for i in formula_text.split(',')]
+                dot_file = os.path.join(dfas_folder, f"f:{formula_num:02}.dot")
+                from aalpy.utils import generate_random_dfa
+                random_dfa = generate_random_dfa(alphabet=alphabet, num_states=num_states, num_accepting_states=num_accepting_states)
+                random_dfa.save(dot_file[:-4])
+                formula = DFA.from_aalpy(random_dfa)
+
+                print(f'---------------Generating Benchmarks for dfa {dot_file!r}---------------')
+
             
             for size in sample_sizes:
                 for length_range in trace_lengths:
@@ -77,7 +99,7 @@ def generateBenchmarks(formula_file, trace_type, sample_sizes, trace_lengths, op
                         length_mean = (length_range[0]+length_range[1])//2
                         sample=Sample()
 
-                        trace_file = os.path.join(traces_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.trace')
+                        trace_file = os.path.join(traces_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.{trace_type}')
                         generated_files.append(trace_file)
 
                         if gen_method=='dfa_method':
@@ -107,7 +129,7 @@ def generateBenchmarks(formula_file, trace_type, sample_sizes, trace_lengths, op
                             print("Formula is consistent with sample")
 
                         if syslite:
-                            syslite_file = os.path.join(syslite_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.trace')
+                            syslite_file = os.path.join(syslite_folder, f'f:{formula_num:02}-nw:{max(size):03}-ml:{length_mean:02}-{num}.{trace_type}')
                             genSysliteTraces(trace_file, syslite_file)
 
     return generated_files
@@ -120,13 +142,13 @@ def tupleList(s):
     except:
         print("Wrong format; provide comma separated values")
 
-def generateSmallBenchmarks(generated_files, max_size, sizes):
+def generateSmallBenchmarks(generated_files, max_size, sizes, trace_type):
     
     for filename in generated_files:
         
         # s = Sample(positive=[],negative=[])
         # s.readFromFile(filename)
-        s = Sample.load(filename, type=PropTrace)
+        s = Sample.load(filename, type=(PropTrace if trace_type=="trace" else AlphaTrace))
         
         for (i,j) in sizes:
             
@@ -149,7 +171,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generates a benchmark of samples from LTL formulas.",
     )
-    parser.add_argument('-f', '--formula_file', metavar="FILE", dest='formula_file', default = 'formulas.txt')
+    parser.add_argument('-f', '--formula_file', metavar="FILE", dest='formula_file', required=True,)
+    parser.add_argument('-T', '--formula_type', dest='formula_type', default='ltl', choices=['ltl', 'dfa_spec'], help="type of formula file")
+    # group_formulas = parser.add_mutually_exclusive_group()
+    # group_formulas.add_argument('--dfa', metavar="SIZE[,ACCEPTING]", dest='dfa_specs', nargs='+', type=tupleList, help="default: ACCEPTING=1")
     parser.add_argument('--trace_type', dest='trace_type', default = 'trace', choices=['trace', 'words'])
     parser.add_argument('--operators', dest='operators', default = ['F', 'G', 'X', '!', '&', '|'], type=list, help='default: "FGX!&|"')
     parser.add_argument('--sizes', metavar="POS,NEG", dest='sample_sizes', default=[(10,10),(50,50),(100,100),(200,200),(500,500)], nargs='+', type=tupleList)
@@ -160,15 +185,19 @@ def main():
     parser.add_argument('--generation_method', dest='gen_method', default='dfa_method', choices=['dfa_method', 'random', 'random_walk'])
 
     args,unknown = parser.parse_known_args()
-    formula_file = args.formula_file
-    trace_type = args.trace_type
+    if args.formula_type in ['dfa_spec']: args.trace_type = 'words'
     sample_sizes = list(args.sample_sizes)
-    trace_lengths = list(args.trace_lengths)
+    formula_file = args.formula_file
     output_folder = args.output_folder
-    syslite = bool(args.syslite)
-    operators = list(args.operators)
-    total_num = int(args.total_num)
-    gen_method = args.gen_method
+    gen_kwargs = dict(
+        formula_type = args.formula_type,
+        trace_type = args.trace_type,
+        trace_lengths = list(args.trace_lengths),
+        syslite = bool(args.syslite),
+        operators = list(args.operators),
+        total_num = int(args.total_num),
+        gen_method = args.gen_method,
+    )
 
     #For generating a fresh set of benchmarks
     if os.path.exists(output_folder):
@@ -178,9 +207,19 @@ def main():
     shutil.copyfile(formula_file, os.path.join(output_folder, os.path.basename(formula_file)))
     sample_sizes.sort()
     max_size = sample_sizes[-1] # assume that there is no other size with more neg traces
-    generated_files = generateBenchmarks(formula_file, trace_type, [max_size], trace_lengths, operators, total_num, output_folder, syslite, gen_method)
+    generated_files = generateBenchmarks(
+        formula_file=formula_file,
+        sample_sizes = [max_size],
+        output_folder=output_folder,
+        **gen_kwargs,
+    )
     #generating small benchmarks from large ones
-    generateSmallBenchmarks(generated_files, max_size, sample_sizes[:-1])
+    generateSmallBenchmarks(
+        generated_files=generated_files,
+        max_size=max_size,
+        sizes=sample_sizes[:-1],
+        trace_type = args.trace_type,
+    )
 
 if __name__=='__main__':
     main()

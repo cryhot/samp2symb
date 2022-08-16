@@ -2,6 +2,7 @@
 pytictoc
 termcolor
 
+aalpy
 lark
 # lark-parser
 graphviz

@@ -71,6 +71,7 @@ class SimpleTree:
         return [self.label] + leftLabels + rightLabels
 
     def getSize(self):
+        "Get the size of the formula tree (not the formula DAG)."
         size = 1
         if self.left != None:
             size += self.left.getSize()
@@ -80,9 +81,13 @@ class SimpleTree:
     
     @property
     def size(self):
+        """Size of the formula tree (not the formula DAG).
+        To get the size of the DAG, use len(set(formula.getAllNodes())).
+        """
         return self.getSize()
 
     def getDepth(self):
+        "Get the depth of the formula tree."
         depth = 0
         if self.left != None:
             depth = max(depth, 1 + self.left.getDepth())
@@ -92,6 +97,7 @@ class SimpleTree:
     
     @property
     def depth(self):
+        "Depth of the formula tree."
         return self.getDepth()
 
 

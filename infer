@@ -67,10 +67,10 @@ def run_SpecificLTL(args:argparse.Namespace):
     from samp2symb.base.trace import Sample, PropTrace
     from samp2symb.algo.infer_specific import find_specific_formula
     sample = Sample.load(args.sample_filename, type=PropTrace)
-    sample = sample.positive # keep positive traces only
+    # sample = sample.positive # keep positive traces only
     json_stats = dict(
         sample=dict(
-            filaname=args.sample_filename,
+            filename=args.sample_filename,
         ),
     )
     method_kwargs = {
@@ -87,7 +87,7 @@ def run_SpecificLTL(args:argparse.Namespace):
             check_horizon=args.check_horizon,
             **method_kwargs,
             timeout=args.timeout,
-            dbg_dots = True, # for debugging
+            dbg_dots = True and not args.quiet, # for debugging
             json_stats=json_stats,
             program_file="problem.lp", # for debugging
         )
@@ -130,25 +130,29 @@ def createParser_problemSpecific_targetDfa(parser=None):
 
     parser.add_argument('--dfa-filename', '--dfa', metavar="FILE",
         dest='dfa_filename',
-        help="""output '.dot' file.""",
+        help="""output '.dot' file, representing the most specific DFA.""",
     )
     parser.add_argument('--dfa-new-filename', metavar="FILE",
         dest='dfa_new_filename',
-        help="""output '.dot' file. Can contain "{attempt}".""",
+        help="""output '.dot' file, representing more and more specific DFAs. Can contain "{attempt}".""",
     )
     parser.add_argument('--dfa-candidate-filename', metavar="FILE",
         dest='dfa_candidate_filename',
-        help="""output '.dot' file. Can contain "{attempt}".""",
+        help="""output '.dot' file, representing all inferred DFAs. Can contain "{attempt}".""",
     )
     return parser
 def run_SpecificDFA(args:argparse.Namespace):
     from samp2symb.base.trace import Sample, AlphaTrace
     from samp2symb.algo.infer_specific import find_specific_dfa
-    sample = Sample.load(args.sample_filename, type=AlphaTrace)
-    sample = sample.positive # keep positive traces only
+    if args.sample_filename.endswith(".trace"):
+        from samp2symb.base.trace import PropTrace
+        sample = Sample.load(args.sample_filename, type=PropTrace)
+    else:
+        sample = Sample.load(args.sample_filename, type=AlphaTrace)
+    # sample = sample.positive # keep positive traces only
     json_stats = dict(
         sample=dict(
-            filaname=args.sample_filename,
+            filename=args.sample_filename,
         ),
     )
     method_kwargs = {
@@ -164,10 +168,10 @@ def run_SpecificDFA(args:argparse.Namespace):
             max_size=args.max_size,
             **method_kwargs,
             timeout=args.timeout,
-            dbg_dots = True, # for debugging
+            dbg_dots = True and not args.quiet, # for debugging
             json_stats=json_stats,
             dfa_filename=args.dfa_filename,
-            dfa_new_filename=args.dfa_new_filename or args.dfa_filename,
+            dfa_new_filename=args.dfa_new_filename or args.dfa_candidate_filename or args.dfa_filename,
             dfa_candidate_filename=args.dfa_candidate_filename,
         )
     except TimeoutError:
@@ -221,9 +225,14 @@ def createParser_main(parser=None) -> argparse.ArgumentParser:
         # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
         help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
     )
+    group_run.add_argument("-q", "--quiet",
+        dest='quiet', action='store_true',
+        help="supress colored dots output.",
+    )
 
     group_run.add_argument("-o", "--json-output", metavar="FILE",
         dest='json_stats_filename',
+        help='Contains all the stats of the experiment (result, iterations, runtime...), in json format.',
     )
     
     subparsers_problem = parser.add_subparsers(metavar="PROBLEM",

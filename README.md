@@ -21,10 +21,16 @@ One might intall only a subset of the dependencies:
 
 Example:
 ```sh
-./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=CE
-./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=HYBRID --horizon=3
-./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:500-ml:10-0.trace" -n=4 --method=CE
+# inference of DFAs
 ./infer --log=INFO -o "stats.json" specific DFA -f "traces/dummy.words" --dfa="dfa.dot" --dfa-new="dfa-{attempt}.dot" -n=3 --method=CE
+
+# inference of LTLf formulas (finite traces)
+./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:10000-ml:10-0.trace" -n=4 --method=CE
+./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:10000-ml:10-0.trace" -n=4 --method=HYBRID --horizon=8
+
+# inference of LTL formulas (infinite traces)
+./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=CE
+./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=HYBRID --horizon=8
 ```
 
 Please read help (`./infer -h` and subcommands help) for more info.
@@ -34,7 +40,8 @@ Please read help (`./infer -h` and subcommands help) for more info.
 ### Generating data
 
 ```sh
-./genBenchmarks -f traces/formulas.txt -o traces/ltlf/ --sizes 10,0 50,0 100,0 200,0 500,0 --lengths 10
+./genBenchmarks -T=dfa_spec -f traces/dfa_specs.txt -o traces/dfa/ --size 500,0
+./genBenchmarks -T=ltl -f traces/formulas.txt -o traces/ltlf/ --size 10000,0 --lengths 10
 ```
 
 ## Acknowledgments
