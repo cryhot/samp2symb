@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
+# run this code to install the library on a fresh virtual machine
+# this script is highly invasive, is is recommended to install manually on personnal devices
 
+REPO="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 BASHRC="$HOME"/.bashrc
 RCSTART="# start (see '$(realpath "${BASH_SOURCE[0]}")')"
 RCEND="# end (see '$(realpath "${BASH_SOURCE[0]}")')"
 echo "$RCSTART" >> "$BASHRC"
 
 # add this library to the path
+pushd "$REPO"
 export PYTHONPATH="$PYTHONPATH:$(realpath .)"  # configure current shell
 echo 'export PYTHONPATH="$PYTHONPATH:'"$(realpath .)"'"' >> "$BASHRC"
+popd
 
 
 sudo apt-get update
+# sudo apt-get upgrade -y  # make sure all packages are up to date
 sudo apt-get install -y python3-pip libpython3-dev
 python3 -m pip install --upgrade pip
 
@@ -21,9 +27,30 @@ python3 -m pip install --upgrade pip
 # sudo apt-get update
 # sudo apt-get install -y spot libspot-dev spot-doc python3-spot # Or a subset of those
 
+# install spot (according to https://spot.lre.epita.fr/install.html#tar)
+pushd "$HOME"  # or any other directory (just for sources)
+wget http://www.lrde.epita.fr/dload/spot/spot-2.11.3.tar.gz
+tar xzvf spot-2.11.3.tar.gz
+#rm spot*.tar.gz
+cd spot*/
+./configure
+make
+prefix="$(make -qp | sed -n "s/^prefix[ ]*=[ ]*//g p")"
+for d in $(find "$prefix/lib/" -type d -name dist-packages); do
+    pushd "$d/.."
+    #sudo rmdir site-packages
+    sudo ln -s dist-packages site-packages
+    popd
+done
+sudo make install
+sudo ldconfig
+popd
+
 # install clingo, etc (Answer Set Programming)
 sudo apt-get install -y gringo
+pushd "$REPO"
 make -C samp2symb/algo/asp/
+popd
 
 
 # install Rust (https://www.rust-lang.org/) (required by caqe)
@@ -46,9 +73,10 @@ sudo apt-get install -y mona
 
 
 # python libraries and wrappers
+pushd "$REPO"
 pip3 install -r requirements.txt
+popd
 
-#TODO: spot
 
 
 echo "$RCEND" >> "$BASHRC"

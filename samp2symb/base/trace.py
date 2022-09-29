@@ -80,7 +80,7 @@ class Trace:
             traceData, suffix = string.split('::')
         except ValueError:
             traceData = string
-        match = re.fullmatch(r'(?P<lassoStart>-?\d+)?(?:\[(?P<weight>)\d+])?', suffix)
+        match = re.fullmatch(r'(?P<lassoStart>-?\d+)?(?:\[(?P<weight>\d+)])?', suffix)
         if match.group('lassoStart') is not None: kwargs['lassoStart'] = int(match.group('lassoStart'))
         if match.group('weight') is not None: kwargs['weight'] = int(match.group('weight'))
         vector = cls._str2seq(traceData)
@@ -422,13 +422,13 @@ class Sample():
 
 
     def splitEval(self, f):
-        """ Split the traces accordigly to evaluation.
+        """ Split the traces accordingly to evaluation.
             :return: (accepted_traces, rejected_traces)
             :rtype: (ExperimentTraces, ExperimentTraces)
         """
         return self.split(lambda t,l: t.evaluate(f))
     def splitCorrect(self, f):
-        """ Split the traces accordigly to correctness.
+        """ Split the traces accordingly to correctness.
             :return: (classified_traces, misclassified_traces)
             :rtype: (ExperimentTraces, ExperimentTraces)
         """
@@ -514,7 +514,7 @@ class Sample():
             infos.append(f"possible solution: ? (depth={self.depthOfSolution})")
         return separator.join(infos)
     
-    def json_summary(self, json_stats=None):
+    def json_summary(self, json_stats=None) -> dict:
         if json_stats is None: json_stats = dict()
         json_stats.update(
             traces = len(self),

@@ -1,4 +1,4 @@
-This directory contains a modified version of [qasp2qbf](https://github.com/potassco/qasp2qbf), which is under [MIT License](LICENSE).
+This directory contains a modified version of [qasp2qbf](https://github.com/potassco/qasp2qbf), which is under [MIT License](https://github.com/potassco/qasp2qbf/blob/master/LICENSE).
 
 ## Install
 

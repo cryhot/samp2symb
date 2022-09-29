@@ -4,7 +4,6 @@ termcolor
 
 aalpy
 lark
-# lark-parser
 graphviz
 z3-solver
 python-sat

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Author: Jean-Raphaël Gaglione"""
 import time
 import functools
 import contextlib
