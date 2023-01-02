@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys, os, io
-from typing import Iterable
+from typing import Iterable, Tuple
 from graphviz import Source
 import random
 import itertools
@@ -740,29 +740,45 @@ def dot2DFA(dot_string, *, letter2pos=None, is_word, group_separator=None):
 #dfa.show()
 
 
-def iter_prod(*dfas:Iterable[DFA]):
+def iter_prod(*dfas:Iterable[DFA],
+    initial_states:Iterable[Tuple['State']]=None,
+    labels:Iterable[Tuple[bool]]=None, # filter on these labels
+):
     "iterate over all reachable states of the product automata, returning the shortest word to reach each such state."
+    
+    if initial_states is None:
+        initial_states = itertools.product(*(dfa._initial_states() for dfa in dfas))
+    elif isinstance(initial_states, tuple):
+        initial_states = [initial_states]
+    
+    if labels is not None:
+        if isinstance(labels, (tuple,bool)): labels = [labels]
+        else:                                labels = list(labels)
+        for i,label in enumerate(labels):
+            if not isinstance(label, tuple): labels[i] = tuple(label for dfa in dfas)
+    
     alphabet = dfas[0].alphabet
-    word = []
-    queue = [
-        (word, states)
-        for states in itertools.product(*(dfa._initial_states() for dfa in dfas))
-    ]
-    visited = set()
+    visited = set(states for states in initial_states)
+    word = ()
+    queue = [(states,word) for states in visited]
     while queue:
-        word, states = queue.pop(0)
-        yield word, states
+        states, word = queue.pop(0)
         for letter in alphabet:
-            word2 = word + [letter]
+            word2 = word + (letter,)
             for states2 in itertools.product(*(dfa._next_states([state],letter) for dfa,state in zip(dfas,states))):
                 if states2 in visited: continue
                 visited.add(states2)
-                queue.append((word2,states2))
+                queue.append((states2,word2))
+        
+        if labels is not None:
+            label = tuple((state in dfa._terminal_states()) for dfa, state in zip(dfas, states))
+            if label not in labels: continue
+
+        yield states, word
 
 def word_with_labels(dfas:Iterable[DFA], labels):
     """return a word in the product dfa which has the desired labels."""
-    for word, states in iter_prod(*dfas):
-        l = tuple(state in dfa._terminal_states() for dfa, state in zip(dfas, states))
-        if l != labels: continue
-        return word
-    return None
+    ans = next(iter_prod(*dfas, labels=labels))
+    if ans is None: return None
+    states, word = ans
+    return word

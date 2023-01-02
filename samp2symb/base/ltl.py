@@ -122,7 +122,7 @@ class Formula(SimpleTree):
             self.left = formulaArg[1]
             try:
                 self.right = formulaArg[2]
-            except:
+            except IndexError:
                 self.right = None
         else:
             super().__init__(formulaArg)

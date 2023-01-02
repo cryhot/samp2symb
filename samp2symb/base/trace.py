@@ -330,6 +330,8 @@ class Sample():
 
     def __len__(self):
         return len(self.acceptedTraces) + len(self.rejectedTraces)
+    def __bool__(self):
+        return len(self) > 0
 
     def __iter__(self):
         return itertools.chain(self.acceptedTraces, self.rejectedTraces)
@@ -579,7 +581,7 @@ class Sample():
     def _flieTraceToTrace(self, tracesString):
         try:
             (initPart, lasso) = tracesString.split("|")
-        except:
+        except ValueError:
             raise Exception("every trace has to have initial part and a lasso part")
         initPart = initPart.split(";")
         lasso = lasso.split(";")
@@ -592,7 +594,7 @@ class Sample():
         for tr in data:
             try:
                 (initPart, lasso) = tr.split("|")
-            except:
+            except ValueError:
                 raise Exception("every trace has to have initial part and a lasso part")
             initPart = initPart.split(";")
             lasso = lasso.split(";")
@@ -610,14 +612,14 @@ class Sample():
         self.literals = []
         try:
             self.literals = data["literals"]
-        except:
+        except KeyError:
             self._getLiteralsFromData(positive)
             self._getLiteralsFromData(negative)
 
         self.numVariables = len(self.literals)
         try:
             self.operators = data["operators"]
-        except:
+        except KeyError:
             self.operators = defaultOperators
 
         for tr in positive:

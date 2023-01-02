@@ -641,7 +641,8 @@ class DFASolver():
         )
     
     def solve_rc2(self, *args, **kwargs) -> DFA:
-        return next(self.iter_solve_rc2(*args, **kwargs))
+        try: return next(self.iter_solve_rc2(*args, **kwargs))
+        except StopIteration: return None
     @timeout_generator
     def iter_solve_rc2(self) -> Iterable[DFA]:
         self.build_cnf()

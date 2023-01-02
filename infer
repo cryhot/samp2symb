@@ -52,12 +52,12 @@ def createParser_problemSpecific_targetLtl(parser=None):
     )
     parser.add_argument('--horizon', '--check-horizon', metavar="INT",
         dest='check_horizon', type=int, default=float('inf'),
-        help="Max checked trace lenght when checking language inclusion (method=SYMBOLIC|HYBRID).",
+        help="Max checked trace lenght when checking language inclusion (method=S-SYMB|SYMB).",
     )
 
     parser.add_argument('--method', #metavar="METHOD",
-        dest='method', choices=["CE", "SYMBOLIC", "HYBRID"], default="CE",
-        # help = 
+        dest='method', choices=["CE", "S-SYMB", "SYMB"], default="S-SYMB",
+        help = "One of: counter-example based, semi-symbolic, symbolic. Default for LTL: S-SYMB."
     )
     parser.add_argument('--timeout', metavar="SECONDS",
         dest='timeout', type=float, default=float('inf'),
@@ -75,8 +75,8 @@ def run_SpecificLTL(args:argparse.Namespace):
     )
     method_kwargs = {
         "CE":       dict(),
-        "SYMBOLIC": dict(force_nsup=True, force_sub=True),
-        "HYBRID":   dict(force_nsup=True),
+        "S-SYMB":   dict(force_nsup=True),
+        "SYMB":     dict(force_nsup=True, force_sub=True),
     }[args.method]
 
     try:
@@ -121,8 +121,8 @@ def createParser_problemSpecific_targetDfa(parser=None):
     )
 
     parser.add_argument('--method', #metavar="METHOD",
-        dest='method', choices=["CE", "SYMBOLIC", "HYBRID"], default="CE",
-        # help = 
+        dest='method', choices=["CE", "S-SYMB", "SYMB"], default="SYMB",
+        help = "One of: counter-example based, semi-symbolic, symbolic. Default for DFA: SYMB."
     )
     parser.add_argument('--timeout', metavar="SECONDS",
         dest='timeout', type=float, default=float('inf'),
@@ -157,8 +157,8 @@ def run_SpecificDFA(args:argparse.Namespace):
     )
     method_kwargs = {
         "CE":       dict(),
-        "SYMBOLIC": dict(force_nsup=True, force_sub=True),
-        "HYBRID":   dict(force_nsup=True),
+        "S-SYMB":   dict(force_nsup=True),
+        "SYMB":     dict(force_nsup=True, force_sub=True),
     }[args.method]
 
     try:

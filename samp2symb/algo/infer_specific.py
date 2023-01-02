@@ -44,7 +44,7 @@ def find_specific_formula(
             if check_finite == "infinite": check_finite = False
             if check_finite == "both": check_finite = None
             if formula is None: formula = Formula.loads("true")
-            else: assert sample.isFormulaConsistent(formula), "sample is not consistant with formula"
+            else: assert sample.positive.isFormulaConsistent(formula), "formula is not consistant with the positive traces"
 
             # prepare variables
             trace1 = next(iter(sample))
@@ -81,7 +81,8 @@ def find_specific_formula(
                 # elapsed = timekeeper.elapsed,
             )
             json_stats.setdefault('iterations', dict())
-            json_stats['results']['formulas'].append(formula.prettyPrint())
+            if sample.negative.isFormulaConsistent(formula):
+                json_stats['results']['formulas'].append(formula.prettyPrint())
 
             while True:
 
@@ -257,7 +258,7 @@ def find_specific_dfa(
                     transitions = {0:{letter:0 for letter in alphabet}}
                 )
             else:
-                assert all(dfa.is_word_in(trace)==label for trace,label in sample.items()), "sample is not consistant with DFA"
+                assert all(dfa.is_word_in(trace)==label for trace,label in sample.positive.items()), "DFA is not consistant with the positive traces"
 
             # prepare variables
             trace1 = next(iter(sample))
@@ -298,7 +299,8 @@ def find_specific_dfa(
                 assert dfa_path.endswith(".dot")
                 with contextlib.redirect_stdout(None): dfa.to_aalpy().save(dfa_path[:-4])
                 # dfa.export_dot(dfa_path, **dot_kwargs)
-            json_stats['results']['dfas'].append(dfa_path)
+            if all(dfa.is_word_in(trace)==label for trace,label in sample.negative.items()):
+                json_stats['results']['dfas'].append(dfa_path)
 
             while True:
 

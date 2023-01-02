@@ -28,11 +28,11 @@ Example:
 
 # inference of LTLf formulas (finite traces)
 ./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:10000-ml:10-0.trace" -n=4 --method=CE
-./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:10000-ml:10-0.trace" -n=4 --method=HYBRID --horizon=8
+./infer -o "stats.json" specific LTL -f "traces/ltlf/TracesFiles/f:01-nw:10000-ml:10-0.trace" -n=4 --method=S-SYMB --horizon=8
 
 # inference of LTL formulas (infinite traces)
 ./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=CE
-./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=HYBRID --horizon=8
+./infer -o "stats.json" specific LTL -f "traces/generated/5to10OneThree/0020.trace" -n=4 --method=S-SYMB --horizon=8
 ```
 
 Please read help (`./infer -h` and subcommands help) for more info.

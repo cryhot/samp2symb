@@ -300,7 +300,8 @@ class LTLSolver():
     
     def solve_asp(self, *args, **kwargs) -> Formula:
         """Returns the first solution of `iter_solve_asp()`."""
-        return next(self.iter_solve_asp(*args, models=1, **kwargs))
+        try: return next(self.iter_solve_asp(*args, models=1, **kwargs))
+        except StopIteration: return None
     def iter_solve_asp(self, *, models:int=None, timeout=float("inf")) -> Iterable[Formula]:
         if models is None: models = "0"
         assert not self.requires_QASP, "a QASP solver is required to solve this problem."
