@@ -453,11 +453,25 @@ class DFA:
         if filename: gv.save()
         return gv
 
-    def _repr_svg_(self, *args, **kwargs):
-        return self.graphviz(
+    # Jupyter integration
+    def _repr_mimebundle_(self, *args, **kwargs):
+        """Return the rendered graph as IPython mimebundle."""
+        gv = self.graphviz(
             keep_alphabet=True,
             group_separator=";",
-        )._repr_svg_(*args, **kwargs)
+        )
+        try: func = gv._repr_mimebundle_
+        except AttributeError as err: raise NotImplementedError() from err
+        return func(*args, **kwargs)
+    def _repr_svg_(self, *args, **kwargs):
+        """Return the rendered graph as SVG string."""
+        gv = self.graphviz(
+            keep_alphabet=True,
+            group_separator=";",
+        )
+        try: func = gv._repr_svg_
+        except AttributeError as err: raise NotImplementedError() from err
+        return func(*args, **kwargs)
 
     def size(self):
         return len(self.states)
