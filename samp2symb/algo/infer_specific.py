@@ -150,13 +150,18 @@ def find_specific_formula(
                 # check that L(A') \subseteq L(A)
                 neg_trace = None
                 if force_sub and check_horizon>=2**(2**size+2**formula.size): neg_trace = False # skip conterexample
+                # if neg_trace is None:
+                #     with timekeeper['ce']:
+                #         neg_trace = (~(formula_candidate >> formula)).accepting_word(finite=check_finite, literals=literals)
+                # if neg_trace is None:
+                #     with timekeeper['ce']:
+                #         neg_trace = formula_candidate.intersecting_word(~formula, finite=check_finite, literals=literals)
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula_candidate >> formula)).to_dfa(literals)
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        try: neg_trace = a.generate_random_word_length(-1)
-                        except RuntimeError: neg_trace = None
-                        else: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
+                        neg_trace = a.accepting_word()
+                        if neg_trace is not None: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_infinite']:
                         a1, a2 = formula_candidate.to_spot().translate(), (~formula).to_spot().translate()
@@ -174,13 +179,18 @@ def find_specific_formula(
                 # check that L(A') \subset L(A)
                 neg_trace = None
                 if effective_force_nsup: neg_trace = False # skip conterexample
+                # if neg_trace is None:
+                #     with timekeeper['ce']:
+                #         neg_trace = (~(formula >> formula_candidate)).accepting_word(finite=check_finite, literals=literals)
+                # if neg_trace is None:
+                #     with timekeeper['ce']:
+                #         neg_trace = formula.intersecting_word(~formula_candidate, finite=check_finite, literals=literals)
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula >> formula_candidate)).to_dfa(literals)
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        try: neg_trace = a.generate_random_word_length(-1)
-                        except RuntimeError: neg_trace = None
-                        else: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
+                        neg_trace = a.accepting_word()
+                        if neg_trace is not None: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a1, a2 = formula.to_spot().translate(), (~formula_candidate).to_spot().translate()
@@ -364,7 +374,7 @@ def find_specific_dfa(
                 if force_sub: neg_trace = False # skip conterexample
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        neg_trace = word_with_labels((dfa,dfa_candidate), (False,True))
+                        neg_trace = dfa_candidate.intersecting_word(~dfa)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     raise NotImplementedError("infinite words")
                 if neg_trace is not None and neg_trace is not False: # found negative counterexample
@@ -380,7 +390,7 @@ def find_specific_dfa(
                 if force_nsup: neg_trace = False # skip conterexample
                 if neg_trace is None and check_finite in [True, None]: # finite trace
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        neg_trace = word_with_labels((dfa,dfa_candidate), (True,False))
+                        neg_trace = dfa.intersecting_word(~dfa_candidate)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     raise NotImplementedError("infinite words")
                 if neg_trace is not None: # found negative counterexample

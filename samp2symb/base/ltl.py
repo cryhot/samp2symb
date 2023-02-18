@@ -323,6 +323,15 @@ class Formula(SimpleTree):
         allNodes = list(set(self.getAllNodes()))
         return [ node for node in allNodes if node._isLeaf() == True ]
 
+    @property
+    def literals(self):
+        return sorted(
+            node.label
+            for node in set(self.getAllNodes())
+            if node._isLeaf() == True
+            if node.label not in ['true','false']
+        )
+
     def getNumberOfSubformulas(self):
         return len(self.getSetOfSubformulas())
 
@@ -336,6 +345,38 @@ class Formula(SimpleTree):
         if self.right != None:
             rightValue = self.right.getSetOfSubformulas()
         return list(set([repr(self)] + leftValue + rightValue))
+    
+    def accepting_word(self, *, finite=None, literals=None):
+        """Returns a minimal trace that is accepted
+        """
+        from .trace import PropTrace
+        if literals is None: literals = self.literals
+        if finite in [True, None]: # finite trace
+            a = self.to_dfa(literals)
+            trace = a.accepting_word()
+            if trace is not None: return PropTrace(trace, literals=literals)
+        if finite in [False, None]: # infinite trace
+            a = self.to_spot().translate()
+            trace = a.accepting_word()
+            if trace is not None: return PropTrace.from_spot(trace, literals=literals)
+        return None
+    
+    def intersecting_word(self, other, *, finite=None, literals=None):
+        """Returns a minimal trace that is accepted by both formulas
+        """
+        from .trace import PropTrace
+        if literals is None: literals = self.literals
+        if finite in [True, None]: # finite trace
+            a1 = self.to_dfa(literals)
+            a2 = other.to_dfa(literals)
+            trace = a1.intersecting_word(a2)
+            if trace is not None: return PropTrace(trace, literals=literals)
+        if finite in [False, None]: # infinite trace
+            a1 = self.to_spot().translate()
+            a2 = other.to_spot().translate()
+            trace = a1.intersecting_word(a2)
+            if trace is not None: return PropTrace.from_spot(trace, literals=literals)
+        return None
     
     @classmethod
     def from_spot(cls, formula:"spot.formula"):
@@ -351,8 +392,9 @@ class Formula(SimpleTree):
         formula = spot.formula(self.prettyPrint())
         return formula
     
-    def to_dfa(self, literals):
+    def to_dfa(self, literals=None):
         from .dfa import DFA, ltl2dfa
+        if literals is None: literals = self.literals
         letter2pos = {x:i for i,x in enumerate(literals)}
         dfa = ltl2dfa(self, letter2pos, is_word=False)
         return dfa

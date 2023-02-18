@@ -20,6 +20,8 @@ class DFA:
         # Calculating number of words of length 0 accepted of length 0 from a state
         self.number_of_words = {(state, 0):int(state in self.final_states) for state in self.states}
         self.calculated_till = 0
+    
+    def __invert__(self): return self.complement()
 
     def is_word_in(self, word):
         '''
@@ -125,7 +127,7 @@ class DFA:
 
         return all_words
 
-    def generate_num_accepting_words(self, length):
+    def generate_num_accepting_words(self, length=-1):
         '''
         Computes the number of words that are accepted of a particular length.
         Use negative lenght to compute for the shortest word lenght (which will be returned). 
@@ -143,12 +145,20 @@ class DFA:
         return i
 
 
-    # def generate_random_short_word(self):
-    #     '''
-    #     returns a minimal random word that is accepted
-    #     '''
-    #     random_length = random.randint(0,100)
-    #     return self.generate_random_word_length(random_length)
+    def accepting_word(self):
+        ''' returns a minimal word that is accepted
+        '''
+        # try: return self.generate_random_word_length(-1)
+        # except RuntimeError: return None
+        return word_with_labels((self,), (True,))
+    
+    def intersecting_word(self, *others):
+        ''' returns a minimal word that is accepted by both dfas
+        '''
+        return word_with_labels(
+            (self, *others),
+            (True, *(True for o in others)),
+        )
 
     def generate_random_word(self):
         '''
@@ -158,7 +168,7 @@ class DFA:
         return self.generate_random_word_length(random_length)
 
     # Algorithm taken from https://link.springer.com/article/10.1007/s00453-010-9446-5
-    def generate_random_word_length(self, length):
+    def generate_random_word_length(self, length=-1):
         '''
         returns a random word of a particular length that is accepted
         '''
@@ -792,7 +802,7 @@ def iter_prod(*dfas:Iterable[DFA],
 
 def word_with_labels(dfas:Iterable[DFA], labels):
     """return a word in the product dfa which has the desired labels."""
-    ans = next(iter_prod(*dfas, labels=labels))
-    if ans is None: return None
+    try: ans = next(iter_prod(*dfas, labels=labels))
+    except StopIteration: return None
     states, word = ans
     return word
