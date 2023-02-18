@@ -4,6 +4,10 @@ import re
 import contextlib
 from collections import deque
 from lark import Lark, Transformer
+
+if False: # for type checking
+    import spot
+
 symmetric_operators = ["&", "|"]
 binary_operators = ["&", "|", "U","->"]
 unary_operators = ["X", "F", "G", "!"]
@@ -12,6 +16,8 @@ class SimpleTree:
         self.left = None
         self.right = None
         self.label = label
+        self.lb = None
+        self.ub = None
 
     def __hash__(self):
         return hash((self.label, self.left, self.right))

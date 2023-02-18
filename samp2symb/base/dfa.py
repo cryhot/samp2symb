@@ -7,6 +7,10 @@ import itertools
 # from ltlf2dfa.parser.ltlf import LTLfParser
 # from .ltl import Formula
 
+from typing import TypeVar, Hashable
+State  = TypeVar('State',  bound=Hashable)
+
+
 class DFA:
     def __init__(self, init_state, final_states, transitions):
         self.final_states = self.accepting_states = final_states
@@ -765,7 +769,7 @@ def dot2DFA(dot_string, *, letter2pos=None, is_word, group_separator=None):
 
 
 def iter_prod(*dfas:Iterable[DFA],
-    initial_states:Iterable[Tuple['State']]=None,
+    initial_states:Iterable[Tuple[State]]=None,
     labels:Iterable[Tuple[bool]]=None, # filter on these labels
 ):
     "iterate over all reachable states of the product automata, returning the shortest word to reach each such state."
