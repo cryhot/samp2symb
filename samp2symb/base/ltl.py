@@ -5,6 +5,8 @@ import contextlib
 from collections import deque
 import lark
 
+import typing
+from typing import *
 if False: # for type checking
     import spot
 
@@ -345,7 +347,7 @@ class Formula(SimpleTree):
         except ValueError as err:
             return cls.convertPrettyToFormula(text)
     
-    def dumps(self):
+    def dumps(self) -> str:
         "Serialize a string to a formula. Uses infix notation by default."
         return self.prettyPrint()
 
@@ -355,7 +357,7 @@ class Formula(SimpleTree):
         return [ node for node in allNodes if node._isLeaf() == True ]
 
     @property
-    def literals(self):
+    def literals(self) -> 'List[str]':
         return sorted(
             node.label
             for node in set(self.getAllNodes())
@@ -378,7 +380,7 @@ class Formula(SimpleTree):
         return list(set([repr(self)] + leftValue + rightValue))
     
     def accepting_word(self, *, finite=None, literals=None):
-        """Returns a minimal trace that is accepted
+        """Returns a minimal trace that is accepted.
         """
         from .trace import PropTrace
         if literals is None: literals = self.literals
@@ -391,9 +393,14 @@ class Formula(SimpleTree):
             trace = a.accepting_word()
             if trace is not None: return PropTrace.from_spot(trace, literals=literals)
         return None
+
+    def rejecting_word(self, *, finite=None, literals=None):
+        """Returns a minimal trace that is rejected.
+        """
+        return (~self).accepting_word(finite=finite, literals=literals)
     
     def intersecting_word(self, other, *, finite=None, literals=None):
-        """Returns a minimal trace that is accepted by both formulas
+        """Returns a minimal trace that is accepted by both formulas.
         """
         from .trace import PropTrace
         if literals is None: literals = self.literals
@@ -410,7 +417,7 @@ class Formula(SimpleTree):
         return None
     
     @classmethod
-    def from_spot(cls, formula:"spot.formula"):
+    def from_spot(cls, formula:"spot.formula") -> 'Formula':
         import spot
         formula = f"{formula:p}"
         if formula == "0": formula = "false"

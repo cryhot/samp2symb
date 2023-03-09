@@ -4,26 +4,112 @@ from typing import Iterable, Tuple
 from graphviz import Source
 import random
 import itertools
+import functools
 # from ltlf2dfa.parser.ltlf import LTLfParser
 # from .ltl import Formula
 
+import typing
+from typing import *
+
 from typing import TypeVar, Hashable
 State  = TypeVar('State',  bound=Hashable)
+Letter  = TypeVar('Letter',  bound=Hashable)
 
 
-class DFA:
-    def __init__(self, init_state, final_states, transitions):
+class DFA(typing.Generic[State,Letter]):
+    def __init__(self, *,
+            init_state:'State',
+            final_states:'Collection[State]',
+            transitions:'Mapping[State,Mapping[Letter,State]]',
+        ):
         self.final_states = self.accepting_states = final_states
         self.init_state = init_state
         self.init_states = [init_state]
         self.transitions = transitions
         self.states = list(transitions.keys())
         self.alphabet = list(transitions[init_state].keys())
-        self.current_state = self.init_state
 
         # Calculating number of words of length 0 accepted of length 0 from a state
         self.number_of_words = {(state, 0):int(state in self.final_states) for state in self.states}
         self.calculated_till = 0
+    
+    def translate(self, *,
+        alphabet : 'Callable[[Letter],Letter] | Mapping[Letter, Letter] | Iterable[Letter]' = {},
+        states   : 'Callable[[State ],State ] | Mapping[State,  State ] | Iterable[State ]' = {},
+    ) -> 'DFA':
+        """Change the symbols and states of this automaton.
+            Symbols and states can be collapsed to a single symbol.
+            If a symbol is translated to `None`, the corresponding transitions are removed.
+        """
+
+        if isinstance(alphabet, typing.Iterable) and not isinstance(alphabet, typing.Mapping):
+            alphabet = {a:a2 for a,a2 in zip(self.alphabet,alphabet)}
+        if isinstance(alphabet, typing.Callable):
+            tr_a = functools.lru_cache(None)(alphabet)
+        elif isinstance(alphabet, typing.Mapping):
+            tr_a = lambda a: alphabet.get(a,a)
+        else:
+            raise TypeError(f"alphabet: unexpected type {alphabet.__class__.__name__}")
+        
+        if isinstance(states, typing.Iterable) and not isinstance(states, typing.Mapping):
+            states = {s:s2 for s,s2 in zip(self.states,states)}
+        if isinstance(states, typing.Callable):
+            tr_s = functools.lru_cache(None)(states)
+        elif isinstance(states, typing.Mapping):
+            tr_s = lambda a: states.get(a,a)
+        else:
+            raise TypeError(f"states: unexpected type {states.__class__.__name__}")
+        
+        kwargs = dict()
+        # kwargs['alphabet'] = alphabet2 = set(tr_a(a) for a in self.alphabet if tr_a(a) is not None)
+        # kwargs['states'] = states2 = set(tr_s(s) for s in self.states)
+        # kwargs['init_states'] = set(tr_s(s) for s in self.init_states)
+        kwargs['final_states'] = set(tr_s(s) for s in self.final_states)
+        kwargs['init_state'] = tr_s(self.init_state)
+        kwargs['transitions'] = transitions2 = dict()
+        for s,trans in self.transitions.items():
+            trans2 = transitions2.setdefault(tr_s(s), dict())
+            trans2.update((tr_a(a),tr_s(s2)) for a,s2 in trans.items() if tr_a(a) is not None)
+        return __class__(**kwargs)
+    
+    @classmethod
+    def product(cls, *dfas,
+        synchronize:bool,
+        alphabet : 'Callable[[Tuple[Letter]],Letter] | Mapping[Tuple[Letter], Letter] | Iterable[Letter]' = {},
+        states   : 'Callable[[Tuple[State ]],State ] | Mapping[Tuple[State],  State ] | Iterable[State ]' = {},
+        final    : 'Callable[[Tuple[bool  ]],bool  ] | Mapping[Tuple[bool],   bool  ]' = all,
+    ):
+        if isinstance(final, typing.Callable):
+            tr_f = functools.lru_cache(None)(final)
+        elif isinstance(final, typing.Mapping):
+            tr_f = lambda f: final.get(f,False)
+        else:
+            raise TypeError(f"final: unexpected type {final.__class__.__name__}")
+
+        kwargs = dict()
+        states2 = list(itertools.product(*(dfa.states for dfa in dfas)))
+        kwargs['init_state'] = tuple(dfa.init_state for dfa in dfas)
+        kwargs['final_states'] = set(
+            s2
+            for s2 in states2
+            if tr_f(tuple(
+                s in dfa.final_states
+                for dfa,s in zip(dfas,s2)
+            ))
+        )
+        kwargs['transitions'] = transitions2 = dict()
+        for transitionss in itertools.product(*(dfa.transitions.items() for dfa in dfas)):
+            ss, transs = zip(*transitionss)
+            transitions2[ss] = {
+                trs[0][0] if synchronize else
+                tuple(tr[0] for tr in trs)
+                : tuple(tr[1] for tr in trs)
+                for trs in itertools.product(*(trans.items() for trans in transs))
+                if not synchronize or len(set(tr[0] for tr in trs))==1
+            }
+        product = __class__(**kwargs)
+        product = product.translate(alphabet=alphabet, states=states)
+        return product
     
     def __invert__(self): return self.complement()
 
@@ -42,7 +128,11 @@ class DFA:
         returns a complement of the self object
         '''
         comp_final_states = [state for state in self.states if state not in self.final_states]
-        d = DFA(self.init_state, comp_final_states, dict(self.transitions))
+        d = DFA(
+            init_state=self.init_state,
+            final_states=comp_final_states,
+            transitions=dict(self.transitions),
+        )
         return d
 
     def show(self, filename="test.gv"):
@@ -155,6 +245,11 @@ class DFA:
         # try: return self.generate_random_word_length(-1)
         # except RuntimeError: return None
         return word_with_labels((self,), (True,))
+
+    def rejecting_word(self):
+        ''' returns a minimal word that is rejected
+        '''
+        return word_with_labels((self,), (False,))
     
     def intersecting_word(self, *others):
         ''' returns a minimal word that is accepted by both dfas
@@ -737,7 +832,11 @@ def dot2DFA(dot_string, *, letter2pos=None, is_word, group_separator=None):
                     transitions[first_state] = {letter:second_state}
 
 
-    formula_dfa = DFA(init_state, final_states, transitions)
+    formula_dfa = DFA(
+        init_state=init_state,
+        final_states=final_states,
+        transitions=transitions,
+    )
 
     return formula_dfa
 
