@@ -167,6 +167,8 @@ class PropTrace(Trace):
                 return not self.__truthValue(formula.left, timestep)
             elif label == '->':
                 return not self.__truthValue(formula.left, timestep) or self.__truthValue(formula.right, timestep)
+            elif label == '<->':
+                return self.__truthValue(formula.left, timestep) == self.__truthValue(formula.right, timestep)
             elif label == 'F':
                 return max([self.__truthValue(formula.left, futureTimestep) for futureTimestep in futureTracePositions])
                 # return self.__truthValue(formula.left, timestep) or self.__truthValue(formula, self.nextPos(timestep))

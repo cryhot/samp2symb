@@ -35,7 +35,7 @@ tar xzvf spot-2.11.3.tar.gz
 cd spot*/
 ./configure
 make
-prefix="$(make -qp | sed -n "s/^prefix[ ]*=[ ]*//g p")"
+prefix="$(make -qp | sed -n "s/^prefix[ ]*=[ ]*//g p")"  # get python version
 for d in $(find "$prefix/lib/" -type d -name dist-packages); do
     pushd "$d/.."
     #sudo rmdir site-packages

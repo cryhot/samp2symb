@@ -3,14 +3,15 @@ import pdb
 import re
 import contextlib
 from collections import deque
-from lark import Lark, Transformer
+import lark
 
 if False: # for type checking
     import spot
 
-symmetric_operators = ["&", "|"]
-binary_operators = ["&", "|", "U","->"]
-unary_operators = ["X", "F", "G", "!"]
+symmetric_operators = ['&', '|', '<->']
+binary_operators = ['&', '|', 'U', '->', '<->']
+unary_operators = ['X', 'F', 'G', '!']
+constants = ['true', 'false']
 class SimpleTree:
     def __init__(self, label = "dummy"):
         self.left = None
@@ -174,47 +175,49 @@ class Formula(SimpleTree):
         fLeft = Formula.normalize(f.left)
         fRight = Formula.normalize(f.right)
 
-        if fLeft.label == "true":
+        if fLeft.label == 'true':
             if f.label in ['|', 'F', 'G', 'X']:
-                return Formula("true")
-            if f.label in ["&", "->"]:
+                return Formula('true')
+            if f.label in ['&', '->', '<->']:
                 return Formula.normalize(fRight)
-            if f.label == "!":
-                return Formula("false")
-            if f.label == "U":
-                return Formula.normalize(Formula(["F", fRight, None]))
+            if f.label == '!':
+                return Formula('false')
+            if f.label == 'U':
+                return Formula.normalize(Formula(['F', fRight, None]))
 
-        if fLeft.label == "false":
+        if fLeft.label == 'false':
             if f.label in ['->', '!']:
-                return Formula["true"]
+                return Formula['true']
             if f.label in ['&', 'F', 'G', 'X']:
-                return Formula["false"]
+                return Formula['false']
             if f.label in ['|', 'U']:
                 return Formula.normalize(fRight)
+            if f.label in ['<->']:
+                return Formula.normalize(Formula(['!', fRight, None]))
 
         if not fRight is None:
-            if fRight.label == "true":
-                if f.label in ['|', "->", 'U']:
-                    return Formula("true")
-                if f.label in ["&"]:
+            if fRight.label == 'true':
+                if f.label in ['|', '->', 'U']:
+                    return Formula('true')
+                if f.label in ['&', '<->']:
                     return Formula.normalize(fLeft)
 
-            if fRight.label == "false":
+            if fRight.label == 'false':
                 if f.label in []:
-                    return Formula["true"]
+                    return Formula['true']
                 if f.label in ['&', 'U']:
-                    return Formula["false"]
+                    return Formula['false']
                 if f.label in ['|']:
                     return Formula.normalize(fLeft)
-                if f.label in ['->']:
-                    return Formula.normalize(Formula(["!", fRight, None]))
+                if f.label in ['->', '<->']:
+                    return Formula.normalize(Formula(['!', fLeft, None]))
 
         # elimiting p&p and similar
         if fLeft == fRight:
             if f.label in ['&', 'U', '|']:
                 return Formula.normalize(fLeft)
-            else:
-                return Formula("true")
+            if f.label in ['->', '<->']:
+                return Formula('true')
 
         # eliminating Fp U p and !p U p
         if f.label == 'U':
@@ -242,18 +245,28 @@ class Formula(SimpleTree):
         """Opposite of __str__()"""
         f = Formula()
         try:
-            formula_parser = Lark(r"""
+            formula_parser = lark.Lark(r"""
                 ?formula: _binary_expression
-                        |_unary_expression
+                        | _unary_expression
                         | constant
                         | variable
-                !constant: "true"
-                        | "false"
-                _binary_expression: binary_operator "(" formula "," formula ")"
-                _unary_expression: unary_operator "(" formula ")"
-                variable: /x[0-9]*/
-                !binary_operator: "&" | "|" | "->" | "U"
-                !unary_operator: "F" | "G" | "!" | "X"
+                _binary_expression.9: op_binary "(" formula "," formula ")"
+                _unary_expression.9: op_unary "(" formula ")"
+                ?constant.8: op_false | op_true
+                variable.1: /[a-zA-Z][a-zA-Z0-9]*/
+                ?op_unary: op_not | op_eventually | op_always | op_next
+                ?op_binary: op_and | op_or | op_implies | op_equiv | op_until
+                op_false: "false" | "0" | "⊥"
+                op_true: "true" | "1" | "⊤"
+                op_not: "!" | "~" | "¬"
+                op_and: "&" | "&&" | "∧"
+                op_or: "|" | "||" | "∨"
+                op_implies: "->" | ">" | "→"
+                op_equiv: "<->" | "=" | "↔"
+                op_eventually: "F" | "◊"
+                op_always: "G" | "□"
+                op_until: "U"
+                op_next: "X" | "○"
                 %import common.SIGNED_NUMBER
                 %import common.WS
                 %ignore WS
@@ -287,19 +300,29 @@ class Formula(SimpleTree):
 
         f = Formula()
         try:
-            formula_parser = Lark(r"""
+            formula_parser = lark.Lark(r"""
                 ?formula: _binary_expression
-                        |_unary_expression
+                        | _unary_expression
                         | constant
                         | variable
                         | "(" formula ")"
-                !constant: "true"
-                        | "false"
-                _binary_expression: formula binary_operator formula
-                _unary_expression: unary_operator formula
-                variable: /x[0-9]*/
-                !binary_operator: "&" | "|" | "->" | "U"
-                !unary_operator: "F" | "G" | "!" | "X"
+                _binary_expression.9: formula op_binary formula
+                _unary_expression.9: op_unary formula
+                ?constant.8: op_false | op_true
+                variable.1: /[a-zA-Z][a-zA-Z0-9]*/
+                ?op_unary: op_not | op_eventually | op_always | op_next
+                ?op_binary: op_and | op_or | op_implies | op_equiv | op_until
+                op_false: "false" | "0" | "⊥"
+                op_true: "true" | "1" | "⊤"
+                op_not: "!" | "~" | "¬"
+                op_and: "&" | "&&" | "∧"
+                op_or: "|" | "||" | "∨"
+                op_implies: "->" | ">" | "→"
+                op_equiv: "<->" | "=" | "↔"
+                op_eventually: "F" | "◊"
+                op_always: "G" | "□"
+                op_until: "U"
+                op_next: "X" | "○"
                 %import common.SIGNED_NUMBER
                 %import common.WS
                 %ignore WS
@@ -316,12 +339,14 @@ class Formula(SimpleTree):
 
     @classmethod
     def loads(cls, text:str):
+        "Deserialize a string to a formula."
         try:
             return cls.convertTextToFormula(text)
         except ValueError as err:
             return cls.convertPrettyToFormula(text)
     
     def dumps(self):
+        "Serialize a string to a formula. Uses infix notation by default."
         return self.prettyPrint()
 
 
@@ -399,6 +424,7 @@ class Formula(SimpleTree):
         return formula
     
     def to_dfa(self, literals=None):
+        "Convert this LTLf formula to a DFA."
         from .dfa import DFA, ltl2dfa
         if literals is None: literals = self.literals
         letter2pos = {x:i for i,x in enumerate(literals)}
@@ -407,24 +433,33 @@ class Formula(SimpleTree):
 
 
 
-class TreeToFormula(Transformer):
-        def formula(self, formulaArgs):
-            if not isinstance(formulaArgs[0], str): formulaArgs.insert(0, formulaArgs.pop(1))
-            return Formula(formulaArgs)
-        def variable(self, varName):
-            return Formula([str(varName[0]), None, None])
-        def constant(self, arg):
-            return Formula(str(arg[0]))
-            # if str(arg[0]) == "true":
-            #     connector = "|"
-            # elif str(arg[0]) == "false":
-            #     connector = "&"
-            # return Formula([connector, Formula(["x0", None, None]), Formula(["!", Formula(["x0", None, None] ), None])])
+@lark.v_args(inline=True)
+class TreeToFormula(lark.Transformer):
+    @lark.v_args(inline=False)
+    def formula(self, formulaArgs):
+        if not isinstance(formulaArgs[0], str): formulaArgs.insert(0, formulaArgs.pop(1))
+        return Formula(formulaArgs)
+    def variable(self, varName):
+        return Formula([str(varName), None, None])
+    def constant(self, arg):
+        return Formula(str(arg))
+        # if str(arg) == "true":
+        #     connector = "|"
+        # elif str(arg) == "false":
+        #     connector = "&"
+        # return Formula([connector, Formula(["x0", None, None]), Formula(["!", Formula(["x0", None, None] ), None])])
 
-        def binary_operator(self, args):
-            return str(args[0])
-        def unary_operator(self, args):
-            return str(args[0])
+    def op_false(self): return 'false'
+    def op_true(self): return 'true'
+    def op_not(self): return '!'
+    def op_and(self): return '&'
+    def op_or(self): return '|'
+    def op_implies(self): return '->'
+    def op_equiv(self): return '<->'
+    def op_eventually(self): return 'F'
+    def op_always(self): return 'G'
+    def op_until(self): return 'U'
+    def op_next(self): return 'X'
 
 
 
