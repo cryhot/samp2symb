@@ -7,9 +7,6 @@ _Python library for inferring symbolic structures (e.g., Linear temporal logic f
 
 ## Installation
 
-To install all dependencies, run the following script: [`./install.sh`](install.sh) (do not use ~`sudo`~, root privilege will be asked when required).
-Run this script **at your own risk** (it is recommended to read it and to run only commands that you understand).
-
 One might intall only a subset of the dependencies:
 - python libraries listed in [`requirements.txt`](requirements.txt)
 <!-- - [Z3](https://github.com/Z3Prover/z3#python) with python bindings: SAT solver -->
@@ -17,6 +14,9 @@ One might intall only a subset of the dependencies:
 - [mona](https://www.brics.dk/mona/): used by [ltlf2dfa](https://github.com/whitemech/LTLf2DFA) to convert LTL formulas to deterministic finite automatas (finite traces)
 - [clingo](https://github.com/potassco/clingo): ASP solver
 - [caqe](https://github.com/ltentrup/caqe.git): QBF solver, used by [qasp2qbf](https://github.com/potassco/qasp2qbf) (see [`./samp2symb/algo/asp/README.md`](samp2symb/algo/asp/README.md))
+
+We provide a convenient script for installing all dependencies on a **fresh linux install** (run **at your own risk** on your personal install, it is recommended to read it and to run only commands that you understand):
+[`./install.sh`](install.sh) (do not use ~`sudo`~, root privilege will be asked when required).
 
 
 ## How to run

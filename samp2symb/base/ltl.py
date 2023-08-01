@@ -254,7 +254,7 @@ class Formula(SimpleTree):
                         | variable
                 _binary_expression.9: op_binary "(" formula "," formula ")"
                 _unary_expression.9: op_unary "(" formula ")"
-                ?constant.8: op_false | op_true
+                constant.8: op_false | op_true
                 variable.1: /[a-zA-Z][a-zA-Z0-9]*/
                 ?op_unary: op_not | op_eventually | op_always | op_next
                 ?op_binary: op_and | op_or | op_implies | op_equiv | op_until
@@ -310,7 +310,7 @@ class Formula(SimpleTree):
                         | "(" formula ")"
                 _binary_expression.9: formula op_binary formula
                 _unary_expression.9: op_unary formula
-                ?constant.8: op_false | op_true
+                constant.8: op_false | op_true
                 variable.1: /[a-zA-Z][a-zA-Z0-9]*/
                 ?op_unary: op_not | op_eventually | op_always | op_next
                 ?op_binary: op_and | op_or | op_implies | op_equiv | op_until

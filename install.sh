@@ -29,10 +29,10 @@ python3 -m pip install --upgrade pip
 
 # install spot (according to https://spot.lre.epita.fr/install.html#tar)
 pushd "$HOME"  # or any other directory (just for sources)
-wget http://www.lrde.epita.fr/dload/spot/spot-2.11.3.tar.gz
+wget http://www.lrde.epita.fr/dload/spot/spot-2.11.3.tar.gz -O spot-2.11.3.tar.gz
 tar xzvf spot-2.11.3.tar.gz
-#rm spot*.tar.gz
-cd spot*/
+#rm spot-2.11.3.tar.gz
+cd spot-2.11.3/
 ./configure
 make
 prefix="$(make -qp | sed -n "s/^prefix[ ]*=[ ]*//g p")"  # get python version

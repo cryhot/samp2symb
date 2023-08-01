@@ -498,11 +498,11 @@ class DFASolver():
         sub:bool=None, sup:bool=None,
         weight=None,
     ):
-        """Makes the inferred formula ($A$) consistent with the given formula ($B$).
+        """Makes the inferred dfa ($A$) consistent with the given dfa ($B$).
         This method wont be effective unless you specify `sup` or `sub`.
 
         Args:
-            formula (Formula): The given formula ($B$).
+            dfa (Formula): The given DFA ($B$).
             sub (bool, optional): Enforce $L(B) \subseteq L(A)$ if `True`, or $L(B) \nsubseteq L(A)$ if `False`.
             sup (bool, optional): Enforce $L(B) \supseteq L(A)$ if `True`, or $L(B) \nsupseteq L(A)$ if `False`.
             weight (int, optional): Soft constraint with this weight (default: hard constraind).
