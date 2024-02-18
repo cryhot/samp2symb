@@ -239,25 +239,34 @@ class DFA(typing.Generic[State,Letter]):
         return i
 
 
-    def accepting_word(self):
+    def accepting_word(self) -> "samp2symb.base.trace.AlphaTrace":
         ''' returns a minimal word that is accepted
         '''
         # try: return self.generate_random_word_length(-1)
         # except RuntimeError: return None
-        return word_with_labels((self,), (True,))
+        from .trace import AlphaTrace
+        trace = word_with_labels((self,), (True,))
+        if trace is not None: return AlphaTrace(trace)
+        return None
 
-    def rejecting_word(self):
+    def rejecting_word(self) -> "samp2symb.base.trace.AlphaTrace":
         ''' returns a minimal word that is rejected
         '''
-        return word_with_labels((self,), (False,))
+        from .trace import AlphaTrace
+        trace = word_with_labels((self,), (False,))
+        if trace is not None: return AlphaTrace(trace)
+        return None
     
-    def intersecting_word(self, *others):
+    def intersecting_word(self, *others) -> "samp2symb.base.trace.AlphaTrace":
         ''' returns a minimal word that is accepted by both dfas
         '''
-        return word_with_labels(
+        from .trace import AlphaTrace
+        trace = word_with_labels(
             (self, *others),
             (True, *(True for o in others)),
         )
+        if trace is not None: return AlphaTrace(trace)
+        return None
 
     def generate_random_word(self):
         '''

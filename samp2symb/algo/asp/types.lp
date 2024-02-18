@@ -4,7 +4,7 @@
 type(TYPE)                      % type/1: set of types
 :- (TYPE,)=().                  % (empty for now)
 
-const(TYPE, VALUE)              % const/2. members of that type
+const(TYPE, VALUE)              % const/2: members of that type
 :- (TYPE, VALUE,)=().           % (empty for now)
 
 operator(OP, TYPES, TYPE)       % operator/3: operator with it's signature (tuple of input types, and output type)

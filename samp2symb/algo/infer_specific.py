@@ -23,6 +23,7 @@ def find_specific_formula(
     from samp2symb.base.ltl import Formula
     from samp2symb.base.trace import PropTrace
     from samp2symb.algo.asp import LTLSolver
+    from samp2symb.base.dfa import iter_prod
     logger = logging.getLogger("LTL-finder")
     timekeeper = TimeKeeper()
     def elapsed_summary():
@@ -50,6 +51,7 @@ def find_specific_formula(
             trace1 = next(iter(sample))
             literals = trace1.literals
             effective_sample = sample.copy()
+            traces = []
             effective_force_nsup = force_nsup
             if grow_sample:
                 effective_sample.clear()
@@ -118,10 +120,12 @@ def find_specific_formula(
                         logger.debug(f"Best formula before interruption: {formula.prettyPrint()}")
                         raise err
                     except StopIteration:
+                        # # enforce language-minimality
                         # if effective_force_nsup and check_horizon<2**(2**size+2**formula.size): # relax problem to find longer counter-examples
                         #     json_stats['results']['unsat'] += 1
                         #     effective_force_nsup = False
                         #     if dbg_dots: sys.stdout.write(termcolor.colored("~", color='cyan', attrs=['bold'])); sys.stdout.flush()
+                        #     logger.debug(f"trying to find counterexamples longer than horizon: force_nsup={effective_force_nsup}")
                         #     formulas_candidate = None; continue
                         with timekeeper[:].exclude:
                             if size >= start_size:
@@ -132,8 +136,8 @@ def find_specific_formula(
                         if size > max_size: break
                         effective_force_nsup = force_nsup
                         with timekeeper[:].exclude:
-                            logger.debug(f"trying size={size}")
                             if dbg_dots: sys.stdout.write(termcolor.colored("+", color='cyan', attrs=['bold'])); sys.stdout.flush()
+                            logger.debug(f"trying size={size}")
                         formulas_candidate = None; continue
 
                 # check consistency with sample
@@ -143,6 +147,7 @@ def find_specific_formula(
                         effective_sample.append(trace, label=label) # ...ensure that it is considered
                         json_stats['results']['traces_sample'] += 1
                         if dbg_dots: sys.stdout.write(termcolor.colored(".", color='green', attrs=['bold'])); sys.stdout.flush()
+                        logger.debug(f"considering new {['negative','positive'][label]} example from the sample")
                         del traces[i]
                         formulas_candidate = None; break
                     if formulas_candidate is None: continue
@@ -160,7 +165,15 @@ def find_specific_formula(
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula_candidate >> formula)).to_dfa(literals)
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        neg_trace = a.accepting_word()
+                        # neg_trace = tuple(a.accepting_word())
+                        try:
+                            neg_trace = next(
+                                word
+                                for state, word in iter_prod(a, labels=(True,))
+                                if len(word) > 0  # search for non empty word
+                            )
+                        except StopIteration:
+                            neg_trace = None
                         if neg_trace is not None: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_infinite']:
@@ -169,11 +182,15 @@ def find_specific_formula(
                         neg_trace = a1.intersecting_word(a2)
                         if neg_trace is not None: neg_trace = PropTrace.from_spot(neg_trace, literals)
                 if neg_trace is not None and neg_trace is not False: # found negative counterexample
-                    effective_sample.append(neg_trace, label=False)
                     with timekeeper[:].exclude:
-                        json_stats['results']['traces_ce'] += 1
                         if dbg_dots: sys.stdout.write(termcolor.colored(".", color='red', attrs=['bold'])); sys.stdout.flush()
                         logger.debug(f"considering new negative counterexample")
+                    if neg_trace is not False:
+                        if neg_trace in effective_sample:
+                            # logger.warning(f"counterexample already considered!")
+                            logger.warning(f"counterexample already considered! {neg_trace.dumps()}")
+                        effective_sample.append(neg_trace, label=False)
+                        json_stats['results']['traces_ce'] += 1
                     formulas_candidate = None; continue
                 
                 # check that L(A') \subset L(A)
@@ -189,7 +206,15 @@ def find_specific_formula(
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
                         a = (~(formula >> formula_candidate)).to_dfa(literals)
                     with timekeeper['ce', 'ce_gen', 'ce_gen_finite']:
-                        neg_trace = a.accepting_word()
+                        # neg_trace = tuple(a.accepting_word())
+                        try:
+                            neg_trace = next(
+                                word
+                                for state, word in iter_prod(a, labels=(True,))
+                                if len(word) > 0  # search for non empty word
+                            )
+                        except StopIteration:
+                            neg_trace = None
                         if neg_trace is not None: neg_trace = PropTrace(neg_trace, literals=literals, intendedEvaluation=False)
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     with timekeeper['ce', 'ce_trans', 'ce_trans_finite']:
@@ -198,14 +223,16 @@ def find_specific_formula(
                         neg_trace = a1.intersecting_word(a2)
                         if neg_trace is not None: neg_trace = PropTrace.from_spot(neg_trace, literals)
                 if neg_trace is not None: # found negative counterexample
-                    if neg_trace is not False:
-                        effective_sample.append(neg_trace, label=False)
-                        json_stats['results']['traces_ce'] += 1
                     formula = formula_candidate
                     with timekeeper[:].exclude:
                         if dbg_dots: sys.stdout.write(termcolor.colored("!", color='red', attrs=['bold'])); sys.stdout.flush()
                         json_stats['results']['formulas'].append(formula.prettyPrint())
                         logger.info(f"found new formula: {formula.prettyPrint()}")
+                    if neg_trace is not False:
+                        if neg_trace in effective_sample:
+                            logger.warning(f"counterexample already considered!")
+                        effective_sample.append(neg_trace, label=False)
+                        json_stats['results']['traces_ce'] += 1
                     formulas_candidate = None; continue
                 
                 with timekeeper[:].exclude:
@@ -273,6 +300,7 @@ def find_specific_dfa(
             # prepare variables
             trace1 = next(iter(sample))
             effective_sample = sample.copy()
+            traces = []
             if grow_sample:
                 effective_sample.clear()
                 traces = sorted(((trace,label) for trace,label in sample.items()), key=lambda x: len(x[0].vector))
@@ -354,8 +382,8 @@ def find_specific_dfa(
                         size += 1
                         if size > max_size: break
                         with timekeeper[:].exclude:
-                            logger.debug(f"trying size={size}")
                             if dbg_dots: sys.stdout.write(termcolor.colored("+", color='cyan', attrs=['bold'])); sys.stdout.flush()
+                            logger.debug(f"trying size={size}")
                         dfas_candidate = None; continue
 
                 # check consistency with sample
@@ -378,11 +406,14 @@ def find_specific_dfa(
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     raise NotImplementedError("infinite words")
                 if neg_trace is not None and neg_trace is not False: # found negative counterexample
-                    effective_sample.append(neg_trace, label=False)
                     with timekeeper[:].exclude:
-                        json_stats['results']['traces_ce'] += 1
                         if dbg_dots: sys.stdout.write(termcolor.colored(".", color='red', attrs=['bold'])); sys.stdout.flush()
                         logger.debug(f"considering new negative counterexample")
+                    if neg_trace is not False:
+                        if neg_trace in effective_sample:
+                            logger.warning(f"counterexample already considered!")
+                        effective_sample.append(neg_trace, label=False)
+                        json_stats['results']['traces_ce'] += 1
                     dfas_candidate = None; continue
                 
                 # check that L(A') \subset L(A)
@@ -394,9 +425,6 @@ def find_specific_dfa(
                 if neg_trace is None and check_finite in [False, None]: # infinite trace
                     raise NotImplementedError("infinite words")
                 if neg_trace is not None: # found negative counterexample
-                    if neg_trace is not False:
-                        effective_sample.append(neg_trace, label=False)
-                        json_stats['results']['traces_ce'] += 1
                     dfa = dfa_candidate
                     with timekeeper[:].exclude:
                         if dbg_dots: sys.stdout.write(termcolor.colored("!", color='red', attrs=['bold'])); sys.stdout.flush()
@@ -407,6 +435,11 @@ def find_specific_dfa(
                             # dfa.export_dot(dfa_path, **dot_kwargs)
                         json_stats['results']['dfas'].append(dfa_path)
                         logger.info(f"found new dfa: {dfa_path}")
+                    if neg_trace is not False:
+                        if neg_trace in effective_sample:
+                            logger.warning(f"counterexample already considered!")
+                        effective_sample.append(neg_trace, label=False)
+                        json_stats['results']['traces_ce'] += 1
                     dfas_candidate = None; continue
                 
                 with timekeeper[:].exclude:

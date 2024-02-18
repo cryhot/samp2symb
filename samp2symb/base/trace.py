@@ -27,6 +27,13 @@ class Trace:
         self.vector = vector
         self.weight = weight
     
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Trace): return NotImplemented
+        if self.lassoStart != other.lassoStart: return False
+        if self.lengthOfTrace != other.lengthOfTrace: return False
+        if any(s!=o for s,o in zip(self.vector, other.vector)): return False
+        return True
+    
     @property
     def finite(self) -> bool:
         return self.lassoStart is None
@@ -72,7 +79,7 @@ class Trace:
         return string
     
     @classmethod
-    def loads(cls, string:str, **kwargs):
+    def loads(cls, string:str, **kwargs) -> "Trace":
         """Opposite of `str(trace)`."""
         string = string.strip()
         suffix = ''
@@ -507,7 +514,7 @@ class Sample():
                     f"{len(trace1.literals)} features",
                 ])
             infos.extend([
-                f"{sum(trace.lengthOfTrace for trace in self)/len(self)} timesteps (avg)",
+                f"{sum(trace.lengthOfTrace for trace in self)/len(self):.3} timesteps (avg)",
             ])
         if self.possibleSolution is not None:
             if self.depthOfSolution is None:

@@ -49,3 +49,22 @@ Please read help (`./infer -h` and subcommands help) for more info.
 ## Acknowledgments
 
 This project reuses code from [cryhot/samples2LTL](https://github.com/cryhot/samples2LTL) and [rajarshi008/Scarlet](https://github.com/rajarshi008/Scarlet/).
+
+## Cite us
+Check out our paper: [_Learning Interpretable Temporal Properties from Positive Examples Only_](https://ojs.aaai.org/index.php/AAAI/article/download/25800/25572)
+
+```
+@article{RoyGBNXT_2023_pos2LTL,
+	doi = {10.1609/aaai.v37i5.25800},
+	url = {https://doi.org/10.1609%2Faaai.v37i5.25800},
+	year = 2023,
+	month = {jun},
+	publisher = {Association for the Advancement of Artificial Intelligence ({AAAI})},
+	volume = {37},
+	number = {5},
+	pages = {6507--6515},
+	author = {Rajarshi Roy and Jean-Raphaël Gaglione and Nasim Baharisangari and Daniel Neider and Zhe Xu and Ufuk Topcu},
+	title = {Learning Interpretable Temporal Properties from Positive Examples Only},
+	journal = {Proceedings of the {AAAI} Conference on Artificial Intelligence}
+}
+```

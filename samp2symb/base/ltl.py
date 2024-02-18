@@ -340,7 +340,7 @@ class Formula(SimpleTree):
         return f
 
     @classmethod
-    def loads(cls, text:str):
+    def loads(cls, text:str) -> "Formula":
         "Deserialize a string to a formula."
         try:
             return cls.convertTextToFormula(text)
@@ -387,7 +387,7 @@ class Formula(SimpleTree):
         if finite in [True, None]: # finite trace
             a = self.to_dfa(literals)
             trace = a.accepting_word()
-            if trace is not None: return PropTrace(trace, literals=literals)
+            if trace is not None: return PropTrace(tuple(trace), literals=literals)
         if finite in [False, None]: # infinite trace
             a = self.to_spot().translate()
             trace = a.accepting_word()
@@ -408,7 +408,7 @@ class Formula(SimpleTree):
             a1 = self.to_dfa(literals)
             a2 = other.to_dfa(literals)
             trace = a1.intersecting_word(a2)
-            if trace is not None: return PropTrace(trace, literals=literals)
+            if trace is not None: return PropTrace(tuple(trace), literals=literals)
         if finite in [False, None]: # infinite trace
             a1 = self.to_spot().translate()
             a2 = other.to_spot().translate()
@@ -417,7 +417,10 @@ class Formula(SimpleTree):
         return None
     
     @classmethod
-    def from_spot(cls, formula:"spot.formula") -> 'Formula':
+    def from_spot(cls, formula:"spot.formula") -> "Formula":
+        """Convert this spot LTL formula into a samb2symb LTL formula.
+        Assumes that it is an LTL formula (over infinite traces).
+        """
         import spot
         formula = f"{formula:p}"
         if formula == "0": formula = "false"
@@ -426,12 +429,19 @@ class Formula(SimpleTree):
         return formula
     
     def to_spot(self) -> "spot.formula":
+        """Convert this LTL formula into it's spot counterpart.
+        Assumes that it is an LTL formula (over infinite traces).
+        To get Büchi automaton, use for example:
+        >>> f.to_spot().translate('Buchi','Deterministic','Complete','StateBasedAcceptance')
+        """
         import spot
         formula = spot.formula(self.prettyPrint())
         return formula
     
-    def to_dfa(self, literals=None):
-        "Convert this LTLf formula to a DFA."
+    def to_dfa(self, literals=None) -> "samp2symb.base.dfa.DFA":
+        """Translate this LTLf formula to a DFA.
+        Assumes that it is an LTLf formula (over finite traces).
+        """
         from .dfa import DFA, ltl2dfa
         if literals is None: literals = self.literals
         letter2pos = {x:i for i,x in enumerate(literals)}
